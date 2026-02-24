@@ -8,15 +8,15 @@ import os
 #Because it parses better
 
 # importing a module from Xbee 
-from xbee_python.src.xbee.XBee import XBee
+from Submodules.xbee_python.src.xbee.XBee import XBee
 # importing frame x81 Xbee
-from xbee_python.src.xbee.frames.x81 import x81
+from Submodules.xbee_python.src.xbee.frames.x81 import x81
 # importing Telemetry from infra
-from gcs_infrastructure.Packet.Telemetry.Telemetry import Telemetry
+from Submodules.gcs_infrastructure.Packet.Telemetry.Telemetry import Telemetry
 # importing Emergency stop from infra
-from gcs_infrastructure.Packet.Command.EmergencyStop import EmergencyStop
+from Submodules.gcs_infrastructure.Packet.Command.EmergencyStop import EmergencyStop
 # importing Logger from
-from gcs_infrastructure.Logger.Logger import Logger
+from Submodules.gcs_infrastructure.Logger.Logger import Logger
 #RabbitMQ Telemetry
 from RabbitMQ.Telemetry import TelemetryRabbitMQ
 #RabbitMQ Commands

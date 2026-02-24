@@ -5,13 +5,13 @@ from datetime import datetime
 
 sys.path.insert(1, "../")
 
-from xbee_python.src.xbee.XBee import XBee
-from xbee_python.src.xbee.frames.x81 import x81
-from gcs_infrastructure.Packet.Telemetry.Telemetry import Telemetry
-from gcs_infrastructure.Packet.Command.EmergencyStop import EmergencyStop # Import command class
-from gcs_infrastructure.Packet.Command.CommandResponse import CommandResponse
+from Submodules.xbee_python.src.xbee.XBee import XBee
+from Submodules.xbee_python.src.xbee.frames.x81 import x81
+from Submodules.gcs_infrastructure.Packet.Telemetry.Telemetry import Telemetry
+from Submodules.gcs_infrastructure.Packet.Command.EmergencyStop import EmergencyStop # Import command class
+from Submodules.gcs_infrastructure.Packet.Command.CommandResponse import CommandResponse
 
-from gcs_infrastructure.Logger.Logger import Logger
+from Submodules.gcs_infrastructure.Logger.Logger import Logger
 
 # === Tag Constants ===
 TAG_COMMAND = 0x01
