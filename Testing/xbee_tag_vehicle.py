@@ -5,7 +5,7 @@ from datetime import datetime
 
 sys.path.insert(1, "../")
 
-from Submodules.xbee_python.src.xbee.XBee import XBee
+from Submodules.xbee_python.src.xbee.XBeeEmulator import XBeeEmulator as XBee
 from Submodules.xbee_python.src.xbee.frames.x81 import x81
 from Submodules.gcs_infrastructure.Packet.Telemetry.Telemetry import Telemetry
 from Submodules.gcs_infrastructure.Packet.Command.EmergencyStop import EmergencyStop # Import command class
@@ -25,11 +25,15 @@ telemetry_lock = threading.Lock()
 
 # === Vehicle Setup ===
 VEHICLE_NAME = "ERU"  # Change this to the current vehicle
-GCS_MAC = "0013A200424366C7"  # MAC of the GCS XBee
+GCS_MAC = "0013A200424366C7"  # MAC of the GCS XBee 
+# simulation of the same vehicle mac
+# VEHICLE_MAC = "0013A20041523456"
 PORT = "/dev/cu.usbserial-D30DWZL4" # Change this to the current port 
 logger = Logger(log_to_console=False)
-vehicle_xbee = XBee(port=PORT, baudrate=115200, logger=logger)
-vehicle_xbee.open()
+VEHICLE_MAC_MAP  = {}
+VEHICLE_MACS = ["0013A20041523456", "0013A20041523457", "0013A20041523458","0013A20041523459"]
+# vehicle_xbee = XBee(port="localhost", baudrate=115200, logger=logger)
+# vehicle_xbee.open()
 
 flag_count = 0  # Ping counter
 
@@ -37,7 +41,7 @@ flag_count = 0  # Ping counter
 # Every second, incremement speed, pitchm yaw, roll, altitude
 # and decrement battery life. Also update latitude and longitude.
 # Patient status and message flag are toggled every second.
-def update_telemetry():
+def update_telemetry(shared_telemetry,telemetry_lock,vehicle_xbee):
     while True:
         print("[.] Updating telemetry data...")
         if not hasattr(update_telemetry, "speed"):
@@ -61,9 +65,9 @@ def update_telemetry():
         update_telemetry.roll += 1
         update_telemetry.altitude += 1
 
-        update_telemetry.battery_life -= 0.01
+        update_telemetry.battery_life -= 1
         if update_telemetry.battery_life < 0:
-            update_telemetry.battery_life = 100.0
+            update_telemetry.battery_life = 100
 
         update_telemetry.current_latitude += 0.0001
         update_telemetry.current_longitude += 0.0001
@@ -98,7 +102,7 @@ def update_telemetry():
 # Locks and encodes shared_telemetry. Prefizes encoded bytes with TAG_TELEMETRY
 # and sends to GCS. If no ping is received from GCS within 3 seconds,
 # increment flag_count. If flag_count >= 3, print warning.
-def send_telemetry():
+def send_telemetry(shared_telemetry,telemetry_lock,vehicle_xbee):
     global flag_count
     logger.write("Starting to send telemetry data...")
     while True:
@@ -115,7 +119,7 @@ def send_telemetry():
 # === Listen for Incoming Commands ===
 # constant polling of GCS for commands.
 # decodes the frame's tag.
-def listen_for_commands():
+def listen_for_commands(shared_telemetry,telemetry_lock,vehicle_xbee):
     global flag_count
     while True:
         try:
@@ -172,24 +176,46 @@ def listen_for_commands():
             print(f"[!] Error in listen_for_commands: {e}")
         time.sleep(0.5)
 
+def start(vehicle_mac):
+    if vehicle_mac not in VEHICLE_MAC_MAP:
+        VEHICLE_MAC_MAP[vehicle_mac] = XBee(port="localhost", baudrate=115200, logger=logger, mac_address= vehicle_mac)
+        vehicle_xbee = VEHICLE_MAC_MAP[vehicle_mac]
+        vehicle_xbee.open()
+
+        shared_telemetry = Telemetry()
+        telemetry_lock = threading.Lock()
+
+
+        telemetry_thread = threading.Thread(target=send_telemetry, args= [shared_telemetry,telemetry_lock,vehicle_xbee],daemon=True)
+        update_thread = threading.Thread(target=update_telemetry, args= [shared_telemetry,telemetry_lock,vehicle_xbee], daemon=True)
+        command_thread = threading.Thread(target=listen_for_commands, args= [shared_telemetry, telemetry_lock,vehicle_xbee], daemon=True)
+
+        telemetry_thread.start()
+        update_thread.start()
+        command_thread.start()
+
+
 # === Main Entry ===
 def main():
+    for vehicle_mac in VEHICLE_MACS:
+        start(vehicle_mac)
     
-    # starts 3 daemon threads 
-    telemetry_thread = threading.Thread(target=send_telemetry, daemon=True)
-    update_thread = threading.Thread(target=update_telemetry, daemon=True)
-    command_thread = threading.Thread(target=listen_for_commands, daemon=True)
+    # # starts 3 daemon threads 
+    # telemetry_thread = threading.Thread(target=send_telemetry, daemon=True)
+    # update_thread = threading.Thread(target=update_telemetry, daemon=True)
+    # command_thread = threading.Thread(target=listen_for_commands, daemon=True)
 
-    telemetry_thread.start()
-    update_thread.start()
-    command_thread.start()
+    # telemetry_thread.start()
+    # update_thread.start()
+    # command_thread.start()
 
     try:
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
         print("\nShutting down vehicle...")
-        vehicle_xbee.close()
+        for vehicle_mac in VEHICLE_MAC_MAP.values():
+            vehicle_mac.close()
         print(" Shutdown complete")
 
 if __name__ == "__main__":

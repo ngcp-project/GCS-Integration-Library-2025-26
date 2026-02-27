@@ -8,7 +8,7 @@ import os
 #Because it parses better
 
 # importing a module from Xbee 
-from Submodules.xbee_python.src.xbee.XBee import XBee
+from Submodules.xbee_python.src.xbee.XBeeEmulator import XBeeEmulator as XBee
 # importing frame x81 Xbee
 from Submodules.xbee_python.src.xbee.frames.x81 import x81
 # importing Telemetry from infra
@@ -36,23 +36,29 @@ COMMAND_REGISTRY = {
     # Add more like 1: KeepInZone, etc.
 }
 
+	
+
 VEHICLES = {    
     "ALL": {"MAC": "000000000000FFFF", "short": "0000"},
-    "MRA": {"MAC": "0013A200424353F7", "short": "0002"},
-    "ERU": {"MAC": "0013A20042435EA9", "short": "0003"},
-    # "ERU": {"MAC": "0013A20042435A3D", "short": "0005"},
-    # "MEA": {"MAC": "0013A2004243672F", "short": "0004"}
+    "ERU": {"MAC": "0013A20041523456", "short": "3456"},
+    "MRA": {"MAC": "0013A20041523457", "short": "3457"},
+    "MEA": {"MAC": "0013A20041523458", "short": "3458"},
+    "FRA": {"MAC": "0013A20041523459", "short": "3459"}
 }
+
 VEHICLE_STATUS = {
     0 : "In Use",
     1 : "Standby",
     2 : "Emergency Stoped",
 }
-
+PORT = "/dev/cu.usbserial-D30DWZL4" # Replace with your actual serial port. Plug in module and run "ls -l /dev/cu.usb*"
+BAUD_RATE = 115200
+MAC_ADDRESS = "0013A200424366C7"
+DESTINATION = "0013A20042435EA9"
 logger = Logger(log_to_console=True)
 # this is for the Xbee which we dont have it right now
-# gcs_xbee = XBee(port =PORT, baudrate= 115200, loggger = logger)
-# gcs_xbee.open()
+gcs_xbee = XBee(port =PORT, baudrate= 115200, logger = logger, mac_address=MAC_ADDRESS)
+gcs_xbee.open()
 
 terminate_event = threading.Event()
 telemetry_publisher = {}
@@ -143,6 +149,7 @@ def parse_and_export_telemetry(telemetry: Telemetry, vehicle_name: str, rssi: in
         "patient_secured": telemetry.patient_status,
     }
     try:
+        print(f"idea",telemetry_dict)
         publisher = get_or_create_publisher(vehicle_name)
         publisher.publish(telemetry_dict)
         # export_rssi(vehicle_name, rssi)
@@ -176,7 +183,7 @@ def handle_ui_command(msg: dict):
     command_cls = COMMAND_REGISTRY[command_id]
     command_packet = command_cls.encode_packet((0))
     # # Send command over XBee
-    # gcs_xbee.transmit_data(command_packet, address=VEHICLES[vehicle]["MAC"])
+    gcs_xbee.transmit_data(command_packet, address=VEHICLES[vehicle]["MAC"])
     logger.write(f"Sent command {command_id} to {vehicle} with value {value}")
 
 def close_connection():
@@ -194,20 +201,26 @@ def listen_for_telemetry():
     while not terminate_event.is_set():
         try:
             frame: x81 = gcs_xbee.retrieve_data()
+            print(frame)
             if not frame:
                 time.sleep(0.05)
                 continue
 
             src_16bit = frame.source_address.hex().upper().zfill(4)
+            print(f"a",src_16bit)
             vehicle_name = next((name for name, info in VEHICLES.items() if info["short"] == src_16bit), "UNKNOWN")
+            # print(vehicle_name)
+            # print(frame.data) 
             # logger.write(f"Frame Data: {frame.data}")
             # logger.write(Telemetry.decode(frame.data))
+            
 
             if isinstance(frame.data, Telemetry):
                 telemetry = frame.data 
             elif isinstance(frame.data, bytes) and frame.data[0] == TAG_TELEMETRY:
                 try:
                     telemetry = Telemetry.decode(frame.data)
+                    print(telemetry)
                 except Exception as e:
                     logger.write(f"[!] Failed to decode raw telemetry: {e}")
                     continue
@@ -240,9 +253,9 @@ def listen_for_telemetry():
 
 def main():
     # command_test_thread = threading.Thread(target=command_test, daemon=True)
-    #telemetry_thread = threading.Thread(target=listen_for_telemetry, daemon=True)
-    telemetry_testing = threading.Thread(target= testing, daemon = True)
-    telemetry_testing.start()
+    telemetry_thread = threading.Thread(target=listen_for_telemetry, daemon=True)
+    # telemetry_testing = threading.Thread(target= testing, daemon = True)
+    # telemetry_testing.start()
     
     # Start RabbitMQ Command Consumer
     consumer = CommandRabbitMQ(
@@ -255,7 +268,7 @@ def main():
     
     
     # command_test_thread.start()
-    #telemetry_thread.start()
+    telemetry_thread.start()
 
     try:
         while True:
