@@ -43,5 +43,36 @@
   Add this:
   <img width="1716" height="124" alt="image" src="https://github.com/user-attachments/assets/ef465957-0ac1-405d-8a61-68ca8e67b51b" />
 
+  ## Set up MQTT broker:
+  Complete steps to setup MQTT broker:
+  ```
+  brew install mosquitto
+  ```
+create file -> vim local.conf
+add this info inside:
+```
+listener 1883
+allow_anonymous true
+```
+Saved it usinf  esc + wq
+
+Then tell mosquito to use it
+```
+/opt/homebrew/sbin/mosquitto -c local.conf -v
+```
+-c will tell the use that file
+-v to see the logs 
+
+You are gonna see this:
+<img width="2722" height="800" alt="image" src="https://github.com/user-attachments/assets/21c20f79-edb2-4549-9aeb-25d001bcee8f" />
+
+Run these files:
+```
+python3 -m Testing.xbee_tag_gcs 
+```
+```
+python3 -m Testing.xbee_tag_vehicle 
+```
+
 
       
