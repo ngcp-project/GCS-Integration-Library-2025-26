@@ -42,7 +42,24 @@
 
   Add this:
   <img width="1716" height="124" alt="image" src="https://github.com/user-attachments/assets/ef465957-0ac1-405d-8a61-68ca8e67b51b" />
+  ## Set up Xbee Emulator
+  
+  https://github.com/ngcp-project/xbee-python/blob/main/docs/xbee_emulator.md
+  
+  ## Modifications XbeeEmulator.py
+  Line 61:
+  ```
+  self.client = MqttClient(str(pan_id), self.mac_address, on_rf=self._on_mqtt, use_tls=False)
+  ```
+  Modify this:
+  
+<img width="594" height="110" alt="image" src="https://github.com/user-attachments/assets/54e7dd24-a757-469d-b465-a71652b5c086" />
 
+  ## Modifications x81.py
+  Line 3
+  ```
+   def __init__(self, frame_type, source_address, rssi, options: int, data):
+  ```
   ## Set up MQTT broker:
   Complete steps to setup MQTT broker:
   ```
