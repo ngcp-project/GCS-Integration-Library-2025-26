@@ -1,3 +1,7 @@
+# Simulates the GCS Xbee receiving telemetry and sending commands (Software Integration)
+# This uses MQTT for the emulator of the XBees
+# Note to self: This will be deprecated soon after SoftwareIntegration.xbee_gcs.py is finished
+
 import threading
 import time
 import random
@@ -12,15 +16,15 @@ from Submodules.xbee_python.src.xbee.XBeeEmulator import XBeeEmulator as XBee
 # importing frame x81 Xbee
 from Submodules.xbee_python.src.xbee.frames.x81 import x81
 # importing Telemetry from infra
-from Submodules.gcs_infrastructure.Packet.Telemetry.Telemetry import Telemetry
+from Submodules.gcs_infrastructure.Packet.Telemetry import Telemetry
 # importing Emergency stop from infra
-from Submodules.gcs_infrastructure.Packet.Command.EmergencyStop import EmergencyStop
+from Submodules.gcs_infrastructure.Packet.Command.Interfaces import EmergencyStop
 # importing Logger from
 from Submodules.gcs_infrastructure.Logger.Logger import Logger
 #RabbitMQ Telemetry
-from RabbitMQ.Telemetry import TelemetryRabbitMQ
+from SoftwareIntegration.RabbitMQ.Telemetry import TelemetryRabbitMQ
 #RabbitMQ Commands
-from RabbitMQ.Command import CommandRabbitMQ
+from SoftwareIntegration.RabbitMQ.Command import CommandRabbitMQ
 
 TAG_COMMAND = 0x01
 TAG_TELEMETRY = 0x02

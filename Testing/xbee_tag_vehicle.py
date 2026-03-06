@@ -1,3 +1,7 @@
+# Simulates the Vehicle Xbee Sending Telemetry to The GCS Xbee and Receiving Commands
+# This is only for testing purposes without the Xbees present
+# This uses MQTT for the emulator of the XBees
+
 import sys
 import threading
 import time
@@ -7,9 +11,9 @@ sys.path.insert(1, "../")
 
 from Submodules.xbee_python.src.xbee.XBeeEmulator import XBeeEmulator as XBee
 from Submodules.xbee_python.src.xbee.frames.x81 import x81
-from Submodules.gcs_infrastructure.Packet.Telemetry.Telemetry import Telemetry
-from Submodules.gcs_infrastructure.Packet.Command.EmergencyStop import EmergencyStop # Import command class
-from Submodules.gcs_infrastructure.Packet.Command.CommandResponse import CommandResponse
+from Submodules.gcs_infrastructure.Packet.Telemetry import Telemetry
+from Submodules.gcs_infrastructure.Packet.Command.Interfaces import EmergencyStop # Import command class
+from Submodules.gcs_infrastructure.Packet.Command.Interfaces import CommandResponse
 
 from Submodules.gcs_infrastructure.Logger.Logger import Logger
 
