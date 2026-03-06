@@ -16,7 +16,7 @@ import os
 # importing a module from Xbee 
 from lib.gcs_infrastructure.lib.xbee_python.src.xbee.XBeeEmulator import XBeeEmulator as XBee
 # importing frame x81 Xbee
-from lib.gcs_infrastructure.lib.xbee_python.src.xbee.frames.x81 import x81
+from lib.gcs_infrastructure.lib.xbee_python.src.xbee.frames.x90 import x90
 # importing Telemetry from infra
 from lib.gcs_infrastructure.lib.gcs_packet.Packet.Telemetry import Telemetry
 # importing Emergency stop from infra
@@ -194,7 +194,7 @@ def handle_ui_command(msg: dict):
 
 def close_connection():
     terminate_event.set()
-    # gcs_xbee.close()
+    gcs_xbee.close()
     
     for connection in telemetry_publisher.values():
         if connection != None:
@@ -206,7 +206,7 @@ def listen_for_telemetry():
     flag = 0
     while not terminate_event.is_set():
         try:
-            frame: x81 = gcs_xbee.retrieve_data()
+            frame: x90 = gcs_xbee.retrieve_data()
             print(frame)
             if not frame:
                 time.sleep(0.05)

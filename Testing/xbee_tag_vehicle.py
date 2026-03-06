@@ -10,14 +10,14 @@ from datetime import datetime
 sys.path.insert(1, "../")
 
 from lib.gcs_infrastructure.lib.xbee_python.src.xbee.XBeeEmulator import XBeeEmulator as XBee
-from lib.gcs_infrastructure.lib.xbee_python.src.xbee.frames.x81 import x81
-from lib.gcs_infrastructure.lib.gcs_packet.Packet.Telemetry import Telemetry
+from lib.gcs_infrastructure.lib.xbee_python.src.xbee.frames.x90 import x90
+from lib.gcs_infrastructure.lib.gcs_packet.Packet.Telemetry.Telemetry import Telemetry
 from lib.gcs_infrastructure.lib.gcs_packet.Packet.Command import EmergencyStop # Import command class
-from lib.gcs_infrastructure.lib.gcs_packet.Packet.Command import CommandResponse
+# from lib.gcs_infrastructure.lib.gcs_packet.Packet.Command import
 
 from lib.gcs_infrastructure.Logger.Logger import Logger
 
-# === Tag Constants ===
+# === Tag Constants =
 TAG_COMMAND = 0x01
 TAG_TELEMETRY = 0x02
 TAG_ACK = 0x03
@@ -45,6 +45,31 @@ flag_count = 0  # Ping counter
 # Every second, incremement speed, pitchm yaw, roll, altitude
 # and decrement battery life. Also update latitude and longitude.
 # Patient status and message flag are toggled every second.
+
+
+        # self.payloadId = payloadId # Payload ID for telemetry data is always 2
+        # self.packetId = packetId
+        # self.speed = speed
+        # self.pitch = pitch
+        # self.yaw = yaw
+        # self.roll = roll
+        # self.altitude = altitude
+        # self.battery_life = battery_life
+        # self.last_updated = last_updated
+        # self.current_long = current_position[0]
+        # self.current_lat = current_position[1]
+        # self.vehicle_status = vehicle_status  # 1 byte (Status flag 0-255)
+
+        # # Message attributes (default: no message)
+        # self.message_flag = message_flag  # 0 = No Message, 1 = Package, 2 = Patient
+        # self.message_lat = message_lat
+        # self.message_lon = message_lon
+        # self.patient_status = patient_status
+
+
+
+
+
 def update_telemetry(shared_telemetry,telemetry_lock,vehicle_xbee):
     while True:
         print("[.] Updating telemetry data...")
@@ -98,7 +123,7 @@ def update_telemetry(shared_telemetry,telemetry_lock,vehicle_xbee):
             shared_telemetry.message_flag = update_telemetry.message_flag
             shared_telemetry.message_lat = update_telemetry.message_lat
             shared_telemetry.message_lon = update_telemetry.message_lon
-            shared_telemetry.last_updated = datetime.now().timestamp()
+            shared_telemetry.last_updated = int(datetime.now().timestamp())
 
         time.sleep(1)
         
@@ -123,11 +148,12 @@ def send_telemetry(shared_telemetry,telemetry_lock,vehicle_xbee):
 # === Listen for Incoming Commands ===
 # constant polling of GCS for commands.
 # decodes the frame's tag.
+# remove the parameters 
 def listen_for_commands(shared_telemetry,telemetry_lock,vehicle_xbee):
     global flag_count
     while True:
         try:
-            frame: x81 = vehicle_xbee.retrieve_data()
+            frame: x90 = vehicle_xbee.retrieve_data()
             if not frame:
                 time.sleep(0.5)
                 continue
@@ -149,17 +175,7 @@ def listen_for_commands(shared_telemetry,telemetry_lock,vehicle_xbee):
                     stop_status = EmergencyStop.decode_packet(payload)
                     with telemetry_lock:
                         shared_telemetry.vehicle_status = 2 if stop_status == 0 else 1 # 2 - emergency mode, 1 - normal
-
-                    command_id = payload[0] 
-                    
-                    # Construct the ACK packet
-                    ack_data = CommandResponse.encode_packet(command_id)
-                    ack_payload = bytes([TAG_ACK]) + ack_data
-                    
-                    # sends the ACK packet back to GCS
-                    vehicle_xbee.transmit_data(ack_payload, address=GCS_MAC)
-                    state = "ENABLED" if stop_status == 0 else "DISABLED"
-                    print(f"Emergency Stop {state}, ACK sent")
+        
                 else:
                     print(f"[!] Invalid command format or unsupported commandId: {payload}")
 
@@ -201,6 +217,8 @@ def start(vehicle_mac):
 
 # === Main Entry ===
 def main():
+
+    ## This is for testing
     for vehicle_mac in VEHICLE_MACS:
         start(vehicle_mac)
     
