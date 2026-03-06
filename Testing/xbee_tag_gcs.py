@@ -11,16 +11,18 @@ import os
 #Added init file to make it a package and change the folder name from xbee-python to xbee_python
 #Because it parses better
 
+# changed folder name of gcs_infra submodules to underscores
+
 # importing a module from Xbee 
-from Submodules.xbee_python.src.xbee.XBeeEmulator import XBeeEmulator as XBee
+from lib.gcs_infrastructure.lib.xbee_python.src.xbee.XBeeEmulator import XBeeEmulator as XBee
 # importing frame x81 Xbee
-from Submodules.xbee_python.src.xbee.frames.x81 import x81
+from lib.gcs_infrastructure.lib.xbee_python.src.xbee.frames.x81 import x81
 # importing Telemetry from infra
-from Submodules.gcs_infrastructure.Packet.Telemetry import Telemetry
+from lib.gcs_infrastructure.lib.gcs_packet.Packet.Telemetry import Telemetry
 # importing Emergency stop from infra
-from Submodules.gcs_infrastructure.Packet.Command.Interfaces import EmergencyStop
+from lib.gcs_infrastructure.lib.gcs_packet.Packet.Command import EmergencyStop
 # importing Logger from
-from Submodules.gcs_infrastructure.Logger.Logger import Logger
+from lib.gcs_infrastructure.Logger.Logger import Logger
 #RabbitMQ Telemetry
 from SoftwareIntegration.RabbitMQ.Telemetry import TelemetryRabbitMQ
 #RabbitMQ Commands
