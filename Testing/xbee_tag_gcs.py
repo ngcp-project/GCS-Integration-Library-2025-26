@@ -24,9 +24,9 @@ from lib.gcs_infrastructure.lib.gcs_packet.Packet.Command import EmergencyStop
 # importing Logger from
 from lib.gcs_infrastructure.Logger.Logger import Logger
 #RabbitMQ Telemetry
-from SoftwareIntegration.RabbitMQ.Telemetry import TelemetryRabbitMQ
+from SoftwareIntegration.RabbitMQ.TelemetryPublisher import TelemetryPublisher
 #RabbitMQ Commands
-from SoftwareIntegration.RabbitMQ.Command import CommandRabbitMQ
+from SoftwareIntegration.RabbitMQ.CommandListener import CommandListener
 
 TAG_COMMAND = 0x01
 TAG_TELEMETRY = 0x02
@@ -72,7 +72,7 @@ telemetry_publisher = {}
 # for each vehicle we are gonna create a new publisher
 def get_or_create_publisher(vehicle_name:str):
     if vehicle_name not in telemetry_publisher:
-        telemetry_publisher[vehicle_name] = TelemetryRabbitMQ(vehicleName= vehicle_name.lower(), hostname= 'localhost')
+        telemetry_publisher[vehicle_name] = TelemetryPublisher(vehicleName= vehicle_name.lower(), hostname= 'localhost')
     return telemetry_publisher[vehicle_name]
 
 def testing():
@@ -264,7 +264,7 @@ def main():
     # telemetry_testing.start()
     
     # Start RabbitMQ Command Consumer
-    consumer = CommandRabbitMQ(
+    consumer = CommandListener(
         on_command=handle_ui_command
     )
     

@@ -1,3 +1,4 @@
+# This is the main manager for all of Software Integration's duties.
 
 VEHICLES = {}
 # vehicle_name : vehicle object
@@ -13,14 +14,14 @@ def telemetry_manager():
     #   increment # commands acked (unique per vehicle)
     # if check_ack_status && is heartbeat
     #   increment # beats acked (unique per vehicle)
-    #   save time of last heartbeat (unique per vehicle)
+    # save time of last telemetry (unique per vehicle)
     # Vehicle.publish_telemetry()
     pass
 
 #each vehicle will need a heartbeat manager
 def heartbeat_manager():
     # sends the heartbeat once every second
-    # Vehicle.determine_connection_status()
+    # determine_connection_status()
     # aquire lock to send command
     # send_command w/ the status (Vehicle.status)
     # release lock 
@@ -29,11 +30,12 @@ def heartbeat_manager():
 
 def command_manager():
     # listens to commands from the command RabbitMQ queue
-    # store temporal queue for command ack with unique ID 
+    # 
     # aquire lock to send command
     # send_command
     # release lock 
     # increment # command sent (unique per vehicle)
+    # retry command x times if no ack
     pass
 
 def check_ack_status():
@@ -47,14 +49,17 @@ def send_command_ack():
     # send ack back to gcs
     pass
 
-def send_command():
+def send_command(command_id:int, args):
     # put unique ID into hashmap 
+    # match command_id (determine which command we are sending)
+    # unpack args accordingloy to each command's specfic structure & create the object given by infra (under Packet)
     # transmit command to correct MAC of the vehicle xbee
     pass
 
 def main():
     #initialize all vehicle objects
     # start threads
+    # include a gracefull shutdown when there is keyboard interrupt to clean up the threads
     pass
 
 if __name__ == "__main__":

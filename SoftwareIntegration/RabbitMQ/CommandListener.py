@@ -2,7 +2,7 @@ import pika
 import json
 
 
-class CommandRabbitMQ:
+class CommandListener:
     """
     RabbitMQ consumer that listens to 'vehicle_commands' queue and forwards
     parsed JSON messages to a provided handler function in GCS.
@@ -29,6 +29,7 @@ class CommandRabbitMQ:
         print(f"[RabbitMQ] Listening on {self.queue}")
         self.channel.start_consuming()
     
+    # refactor this
     def _on_message(self, ch, method,properties, body):
         """Internal callback to handle new messages."""
         try:
