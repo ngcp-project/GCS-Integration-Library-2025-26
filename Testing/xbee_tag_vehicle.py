@@ -10,10 +10,10 @@ from datetime import datetime
 sys.path.insert(1, "../")
 
 from lib.gcs_infrastructure.lib.xbee_python.src.xbee.XBeeEmulator import XBeeEmulator as XBee
-from lib.gcs_infrastructure.lib.xbee_python.src.xbee.frames.x90 import x90
+from lib.gcs_infrastructure.lib.xbee_python.src.xbee.frames.x81 import x81
 from lib.gcs_infrastructure.lib.gcs_packet.Packet.Telemetry.Telemetry import Telemetry
 from lib.gcs_infrastructure.lib.gcs_packet.Packet.Command import EmergencyStop # Import command class
-# from lib.gcs_infrastructure.lib.gcs_packet.Packet.Command import
+# from lib.gcs_infrastructure.lib.gcs_packet.Packet.Command import CommandResponse
 
 from lib.gcs_infrastructure.Logger.Logger import Logger
 
@@ -175,7 +175,17 @@ def listen_for_commands(shared_telemetry,telemetry_lock,vehicle_xbee):
                     stop_status = EmergencyStop.decode_packet(payload)
                     with telemetry_lock:
                         shared_telemetry.vehicle_status = 2 if stop_status == 0 else 1 # 2 - emergency mode, 1 - normal
-        
+
+                    command_id = payload[0] 
+                    
+                    # # Construct the ACK packet
+                    # ack_data = CommandResponse.encode_packet(command_id)
+                    # ack_payload = bytes([TAG_ACK]) + ack_data
+                    
+                    # # sends the ACK packet back to GCS
+                    # vehicle_xbee.transmit_data(ack_payload, address=GCS_MAC)
+                    # state = "ENABLED" if stop_status == 0 else "DISABLED"
+                    # print(f"Emergency Stop {state}, ACK sent")
                 else:
                     print(f"[!] Invalid command format or unsupported commandId: {payload}")
 

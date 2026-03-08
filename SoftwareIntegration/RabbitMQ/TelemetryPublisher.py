@@ -2,7 +2,7 @@ import pika
 import json
 
 #constructor
-class TelemetryRabbitMQ:
+class TelemetryPublisher:
     def __init__(self, vehicleName:str, hostname: str):
         self.vehicleName = vehicleName
         self.hostName = hostname
@@ -10,12 +10,12 @@ class TelemetryRabbitMQ:
         # initilize rabbitmq server
         self.channel = None
         # this will trigger both queue declarations:
-        self.setup_rabbitmq(hostname)
+        self.setup_rabbitmq()
 
     def setup_rabbitmq(self,hostname: str):
         # our rabbitmq server will require user/password 
         credentials = pika.PlainCredentials('admin', 'admin')
-        parameters = pika.ConnectionParameters(host = hostname, credentials= credentials, virtual_host= "/")
+        parameters = pika.ConnectionParameters(host = self.hostName, credentials= credentials, virtual_host= "/")
         self.connection =  pika.BlockingConnection(parameters)
         #create a channel
         self.channel = self.connection.channel()

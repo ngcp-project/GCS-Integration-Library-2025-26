@@ -2,7 +2,7 @@ import pika
 import json
 
 
-class CommandRabbitMQ:
+class CommandListener:
     """
     RabbitMQ consumer that listens to 'vehicle_commands' queue and forwards
     parsed JSON messages to a provided handler function in GCS.
@@ -21,14 +21,15 @@ class CommandRabbitMQ:
         self.connection = pika.BlockingConnection(pika.ConnectionParameters(host='localhost', credentials= credentials, virtual_host= '/')
         )
         self.channel = self.connection.channel()
+        # command queue
         self.channel.queue_declare(queue = self.queue, durable = True)
-
+    #start consuming
     def start(self):
-        self.channel.basic_qos(prefetch_count=1)
+        # self.channel.basic_qos(prefetch_count=1)
         self.channel.basic_consume(queue=self.queue, on_message_callback= self._on_message)
         print(f"[RabbitMQ] Listening on {self.queue}")
         self.channel.start_consuming()
-    
+    # refactor this
     def _on_message(self, ch, method,properties, body):
         """Internal callback to handle new messages."""
         try:
@@ -36,6 +37,7 @@ class CommandRabbitMQ:
             print(msg)
             if self.on_command:
                 self.on_command(msg)
+            self._on_publish(self, ch,method)    
         except Exception as e:
             print(f"Error processing RabbitMQ messagews: {e}")
         finally:
@@ -43,4 +45,12 @@ class CommandRabbitMQ:
     def stop(self):
         if self.connection:
             self.connection.close()
+    # RPC STUFF
+    def _on_publish(self,ch, method):
+        ch.basic_publish(exchange = '',
+                        routing_key = "unique/temporal queque",
+                        body = str("reponse")             
+                        )
+        ch.basic_ack(delivery_tag= method.delivery_tag)
+        
     
