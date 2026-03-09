@@ -14,6 +14,9 @@ ACK_MAP = {
     # packet_id : "Acknowledgement object" 
 }
 
+#temp packet_id for proof of concept
+packet_id = 0
+
 #create a lock for sending commands & heartbeat threads. Only one can be done at a time
 #global lock
 command_lock = threading.Lock()
@@ -23,7 +26,10 @@ shutdown = threading.Event()
 
 # 1 thread for telemetry manager
 def telemetry_manager() -> None:
+    print(f"Telemetry Manager Started")
     while not shutdown.is_set():
+        print(ACK_MAP)
+        time.sleep(3)
         pass
     
         # subscribe to telemetry_infra (may change depending on approach)
@@ -41,23 +47,29 @@ def telemetry_manager() -> None:
 
         # publish telemetry to telemetry_gcs using vehicle object
 
-    pass
+    print(f"Telemetry Manager Shutting Down")
 
 # Each vehicle will need a heartbeat manager
 def heartbeat_manager(vehicle: Vehicle) -> None:
+    # sends the heartbeat once every second
     while not shutdown.is_set():
-        # sends the heartbeat once every second
-        # determine_connection_status()
+        print(f"Heartbeat for {vehicle.name}")
+        vehicle.determine_connection_status()
+
         with command_lock:
-            pass
-            # aquire lock to send command
-            # send_command w/ the status (Vehicle.status)
-            # release lock 
-            # increment # beats sent (unique per vehicle)
-    pass
+            send_command(command_id=0, args=vehicle.status, destination=vehicle.name)
+            vehicle.num_beats_sent += 1
+
+        time.sleep(3) 
+    
+    print(f"{vehicle.name} sent {vehicle.num_beats_sent} beats")
+    print(f"Heartbeat for {vehicle.name} Shutting Down")
 
 # 1 thread for commands
-def command_manager(command_listener: CommandListener) -> None:
+# def command_manager(command_listener: CommandListener) -> None:
+def command_manager() -> None:
+    print(f"Command Manager Started")
+    send_command(command_id=1, args="testing", destination="BOB")
     while not shutdown.is_set():
         # listens to commands from the command RabbitMQ queue
 
@@ -83,7 +95,7 @@ def command_manager(command_listener: CommandListener) -> None:
                 # update last_command_time
                 #retry vehicle.last_command_sent (maybe make into enum?)
                 # increment counters
-    pass
+    print(f"Command Manager Shutting Down")
 
 def check_ack_status(packet_id : int, command_ack:int, time_arrived : float) -> bool:
     # expected_ack = ACK_MAP[packet_id]
@@ -99,18 +111,24 @@ def send_command_ack():
     pass
 
 # args : any kind of parameter, not type defined
-def send_command(command_id:int, args):
+def send_command(command_id:int, destination, args):
+    global packet_id
+    print(f"Sending Command {command_id} with args of {args} to {destination}")
+    ACK_MAP[packet_id] = f"Command {command_id} with args of {args} to {destination}"
+    packet_id+=1
     # put packet_id into hashmap 
     # match command_id (determine which command we are sending) switch case
     # unpack args accordingloy to each command's specfic structure & create the object given by infra (under Packet)
     # transmit command to correct MAC of the vehicle xbee
     pass
 
-def end_program():
+def end_program(command_manager_thread:threading.Thread, telemetry_manager_thread:threading.Thread):
     shutdown.set()
-
-    # for vehicle in VEHICLES:
-    #     vehicle.telemetry_publisher.close_connection()
+    command_manager_thread.join()
+    telemetry_manager_thread.join()
+    for vehicle in VEHICLES.values():
+        # vehicle.telemetry_publisher.close_connection()
+        vehicle.heartbeat.join()
     
     print("Shutdown complete.")
     pass
@@ -118,15 +136,26 @@ def end_program():
 # we also need a function to clean up the dict/remove acknwoledged commands
 
 def main():
+    vehicle_list = ["ERU", "MRA", "MEA"]
+
     #initialize all vehicle objects
-    # [ERU,MRA,MEA]
-    # VEHICLES["ERU"] = Vehicle("arguments")
-    # VEHICLES["MRA"] = Vehicle("arguments")
-    # VEHICLES["MEA"] = Vehicle("arguments")
-    # Initialize CommandListener and TelemetryPublisher
+    for vehicle in vehicle_list:
+        vehicle = Vehicle(name=vehicle)
+        # vehicle.telemetry_publisher = TelemetryPublisher(vehicleName=vehicle.name, hostname='localhost'),
+        vehicle.heartbeat=threading.Thread(target=heartbeat_manager, args=[vehicle])
+        VEHICLES[vehicle.name] = vehicle
+
     # 3 threads hearbeat + 1 thread command_manager + 1 thread telemetry manager
-    # ()
+    # command_manager_thread = threading.Thread(target=command_manager, args=CommandListener())
+    command_manager_thread = threading.Thread(target=command_manager)
+    telemetry_manager_thread = threading.Thread(target=telemetry_manager)
+
     # start threads
+    telemetry_manager_thread.start()
+    command_manager_thread.start()
+    for vehicle in VEHICLES.values():
+        vehicle.heartbeat.start()
+        time.sleep(0.25) #staggers the heartbeats 
 
     #graceful shutdown
     try:
@@ -135,7 +164,7 @@ def main():
     except KeyboardInterrupt:
         print("\n Shutdown requested by user.")
     finally:
-        end_program()
+        end_program(command_manager_thread, telemetry_manager_thread)
 
 if __name__ == "__main__":
     main()
