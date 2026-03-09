@@ -6,13 +6,15 @@ from lib.gcs_infrastructure.lib.gcs_packet.Packet.Enum.ConnectionStatus import C
 class Vehicle():
     def __init__(self, name:str, mac_address:str, telemetry_publisher:TelemetryPublisher, heartbeat:Thread):
         self.name = name
-        self.mac_address= mac_address
+        self.mac_address= mac_address #might get changed to an enum, combined into vehicle name
         self.telemetry_publisher = telemetry_publisher
         self.heartbeat = heartbeat
         self.num_beats_ack = 0
         self.num_beats_sent = 0
         self.num_command_ack = 0
         self.num_command_sent = 0
+        self.last_command_sent = None
+        self.last_command_time = None
         self.last_telemetry_time = None 
         self.status = ConnectionStatus(0)
         pass
