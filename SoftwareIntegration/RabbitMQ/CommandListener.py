@@ -23,13 +23,17 @@ class CommandListener:
         self.channel = self.connection.channel()
         # command queue
         self.channel.queue_declare(queue = self.queue, durable = True)
+        self.global_consumer = None
     #start consuming
-    def start(self):
+    def start(self) -> str:
         # self.channel.basic_qos(prefetch_count=1)
-        self.channel.basic_consume(queue=self.queue, on_message_callback= self._on_message)
+        # on_message_callback -> whenever a message has been received the function _on_messsage will be triggered
+        # we need the tag to identify the consumer, since this is gonna change every time, for each command sent 
+        consumer_tag =self.channel.basic_consume(queue=self.queue, on_message_callback= self._on_message)
+        self.global_consumer = consumer_tag
         print(f"[RabbitMQ] Listening on {self.queue}")
         self.channel.start_consuming()
-    # refactor this
+     # when received the message this callback_fuction will be triggered, and
     def _on_message(self, ch, method,properties, body):
         """Internal callback to handle new messages."""
         try:
@@ -45,8 +49,11 @@ class CommandListener:
     def stop(self):
         if self.connection:
             self.connection.close()
-    # RPC STUFF
+    # RPC STUFF:
+    # The basic idea of on publish, is that whenever is validated, its gonna publish
+    # the command throught that specific unique_queque
     def _on_publish(self,ch, method):
+        # acquire temporal queque and send the response
         ch.basic_publish(exchange = '',
                         routing_key = "unique/temporal queque",
                         body = str("reponse")             
