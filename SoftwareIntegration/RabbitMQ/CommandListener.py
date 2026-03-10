@@ -29,8 +29,7 @@ class CommandListener:
         # self.channel.basic_qos(prefetch_count=1)
         # on_message_callback -> whenever a message has been received the function _on_messsage will be triggered
         # we need the tag to identify the consumer, since this is gonna change every time, for each command sent 
-        consumer_tag =self.channel.basic_consume(queue=self.queue, on_message_callback= self._on_message)
-        self.global_consumer = consumer_tag
+        self.channel.basic_consume(queue=self.queue, on_message_callback= self._on_message)
         print(f"[RabbitMQ] Listening on {self.queue}")
         self.channel.start_consuming()
      # when received the message this callback_fuction will be triggered, and
@@ -41,7 +40,8 @@ class CommandListener:
             print(msg)
             if self.on_command:
                 self.on_command(msg)
-            self._on_publish(self, ch,method)    
+            
+            self._on_publish(self, ch,method ,properties, body)    
         except Exception as e:
             print(f"Error processing RabbitMQ messagews: {e}")
         finally:
@@ -52,11 +52,14 @@ class CommandListener:
     # RPC STUFF:
     # The basic idea of on publish, is that whenever is validated, its gonna publish
     # the command throught that specific unique_queque
-    def _on_publish(self,ch, method):
+    def _on_publish(self,ch, method,properties, body):
         # acquire temporal queque and send the response
         ch.basic_publish(exchange = '',
-                        routing_key = "unique/temporal queque",
-                        body = str("reponse")             
+                        routing_key = properties.reply_to,
+                        properties = pika.BasicProperties(
+                            correlation_id=  properties.correlation_id
+                        ),
+                        body = str()             
                         )
         ch.basic_ack(delivery_tag= method.delivery_tag)
         

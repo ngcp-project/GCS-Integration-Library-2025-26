@@ -67,13 +67,15 @@ def heartbeat_manager(vehicle: Vehicle) -> None:
 
 # 1 thread for commands
 # def command_manager(command_listener: CommandListener) -> None:
-def command_manager() -> None:
+def command_manager(command_listener : CommandListener, arg) -> None:
     print(f"Command Manager Started")
     send_command(command_id=1, args="testing", destination="BOB")
     while not shutdown.is_set():
         # listens to commands from the command RabbitMQ queue
-
+        # starts consuming from command_queue
+        command_listener.start()
         with command_lock:
+            
             pass
             # aquire lock to send command
             # send_command
@@ -136,6 +138,7 @@ def end_program(command_manager_thread:threading.Thread, telemetry_manager_threa
 # we also need a function to clean up the dict/remove acknwoledged commands
 
 def main():
+    # List of vehicless
     vehicle_list = ["ERU", "MRA", "MEA"]
 
     #initialize all vehicle objects
@@ -143,18 +146,22 @@ def main():
         vehicle = Vehicle(name=vehicle)
         # vehicle.telemetry_publisher = TelemetryPublisher(vehicleName=vehicle.name, hostname='localhost'),
         vehicle.heartbeat=threading.Thread(target=heartbeat_manager, args=[vehicle])
+        # putting in the map vehicle name and Vehicle class
         VEHICLES[vehicle.name] = vehicle
 
     # 3 threads hearbeat + 1 thread command_manager + 1 thread telemetry manager
     # command_manager_thread = threading.Thread(target=command_manager, args=CommandListener())
-    command_manager_thread = threading.Thread(target=command_manager)
+    command_manager_thread = threading.Thread(target=command_manager, args=[CommandListener], daemon= False)
+
     telemetry_manager_thread = threading.Thread(target=telemetry_manager)
 
     # start threads
     telemetry_manager_thread.start()
     command_manager_thread.start()
     for vehicle in VEHICLES.values():
+        # for each vehicle you are gonna start the hearbeat
         vehicle.heartbeat.start()
+        # skiping heartbeats?
         time.sleep(0.25) #staggers the heartbeats 
 
     #graceful shutdown
