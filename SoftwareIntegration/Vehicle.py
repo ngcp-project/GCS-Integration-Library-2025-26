@@ -1,14 +1,14 @@
 from threading import Thread
-from datetime import timestamp
+from datetime import datetime
 from SoftwareIntegration.RabbitMQ.TelemetryPublisher import TelemetryPublisher
 from lib.gcs_infrastructure.lib.gcs_packet.Packet.Enum.ConnectionStatus import ConnectionStatus
+from lib.gcs_infrastructure.lib.gcs_packet.Packet.Telemetry.Telemetry import Telemetry
 
 class Vehicle():
-    def __init__(self, name:str, mac_address:str, telemetry_publisher:TelemetryPublisher, heartbeat:Thread):
+    def __init__(self, name:str):
         self.name = name
-        self.mac_address= mac_address #might get changed to an enum, combined into vehicle name
-        self.telemetry_publisher = telemetry_publisher
-        self.heartbeat = heartbeat
+        self.telemetry_publisher = None
+        self.heartbeat = None
         self.num_beats_ack = 0
         self.num_beats_sent = 0
         self.num_command_ack = 0
@@ -19,13 +19,13 @@ class Vehicle():
         self.status = ConnectionStatus(0)
         pass
 
-    def determine_connection_status():
+    def determine_connection_status(self):
         # some function to determine connection status with the heartbeats & commands
         #update self.status
         pass
 
 
-    def publish_telemetry(self, data):
+    def publish_telemetry(self, telemetry:Telemetry):
         #append self.status to telemetry before sending
         pass
 

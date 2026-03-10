@@ -4,7 +4,7 @@
     Each command will have their own exclusive callback queue, and then its gonna be eliminated.
 """
 class Acknowledgement():
-    def __init__(self, expected_time:float, correlation_id:int):
+    def __init__(self, expected_time:float):
         self.expected_time = expected_time
         # temporal queue (?)
         # maybe deprecate this if there are not many things to save
