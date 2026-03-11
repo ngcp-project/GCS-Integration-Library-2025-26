@@ -151,7 +151,7 @@ def main():
 
     # 3 threads hearbeat + 1 thread command_manager + 1 thread telemetry manager
     # command_manager_thread = threading.Thread(target=command_manager, args=CommandListener())
-    command_manager_thread = threading.Thread(target=command_manager, args=[CommandListener], daemon= False)
+    command_manager_thread = threading.Thread(target=command_manager, args=[CommandListener,], daemon= False)
 
     telemetry_manager_thread = threading.Thread(target=telemetry_manager)
 
