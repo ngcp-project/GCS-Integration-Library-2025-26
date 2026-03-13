@@ -1,6 +1,7 @@
 from Objects.command_emergency_stop import EmergencyStopCommand
 from RabbitMQTesting.CommandPublisher import CommandPublisher
 import threading
+from time import time
 
 """
     (GCS_APPLICATION)
@@ -30,7 +31,7 @@ def command_manager(rabbitmq_instance: CommandPublisher):
             print(f"Command: {rabbitmq_instance.response[0]} for vehicle: {rabbitmq_instance.response[1]} has been acknowledge")
         elif rabbitmq_instance.response[2] == "False":
             print(f"Command: {rabbitmq_instance.response[0]} for vehicle: {rabbitmq_instance.response[1]} has not been acknowledge")
-
+    time.sleep(1)
 
 
 def close_connection():

@@ -5,6 +5,14 @@ import time
 from SoftwareIntegration.Vehicle import Vehicle
 from SoftwareIntegration.RabbitMQ.TelemetryPublisher import TelemetryPublisher
 from SoftwareIntegration.RabbitMQ.CommandListener import CommandListener
+from SoftwareIntegration.Acknowledgement import Acknowledgement
+from Command.EmergencyStop import EmergencyStop
+from SoftwareIntegration.RabbitMQ.CommandListener import *
+from Enum import *
+from PacketLibrary.PacketLibrary import PacketLibrary
+from Infrastructure import GCSXBee
+from Infrastructure import *
+from Infrastructure.GCSXBee import *
 
 VEHICLES = {
     # "Vehicle Name" : "Vehicle object" 
@@ -24,28 +32,29 @@ command_lock = threading.Lock()
 #event for graceful shutdown of program
 shutdown = threading.Event()
 
+consumer = CommandListener()
 # 1 thread for telemetry manager
 def telemetry_manager() -> None:
     print(f"Telemetry Manager Started")
     while not shutdown.is_set():
         print(ACK_MAP)
-        time.sleep(3)
-        pass
-    
-        # subscribe to telemetry_infra (may change depending on approach)
         # check telemetry for command ack
-            # use an enum for knowing which vehicle it is 
-
-            # ack_status = check_ack_status(telemetry.packetId, telemetry.last_updated)
-
-            # if ack_status && is command(not heartbeat)
-            #   send_command_ack() (to gcs in temporal queue)
-            #   increment # commands acked (unique per vehicle)
-            # if ack_status && is heartbeat
-            #   increment # beats acked (unique per vehicle)
-            # save time of last telemetry (unique per vehicle)
-
-        # publish telemetry to telemetry_gcs using vehicle object
+        # use an enum for knowing which vehicle it is 
+        telemetry_instance = ReceiveTelemetry() 
+        packet_id = telemetry_instance.packet_id
+        if packet_id in ACK_MAP:
+            ack_event =  ACK_MAP[packet_id]
+            vehicle_id, command_id = ack_event.vehicle_id, ack_event.command_id
+            ack_status = check_ack_status(telemetry_instance.packetId, telemetry_instance.last_updated)
+            vehicle_instance = VEHICLES[vehicle_id]
+            if ack_status and (command_id == 2 or command_id == 3 or command_id == 4 or command_id == 5 or command_id ==6):
+                send_command_ack(vehicle_id=vehicle_id, command_id= command_id)
+                vehicle_instance.increment_num_command_ack()
+            elif ack_status and command_id == 1:
+                vehicle_instance.increment_num_beats_ack()
+                vehicle_instance.last_telemetry_ack = telemetry_instance
+        else:
+            print(f"packet_id not found in map")
 
     print(f"Telemetry Manager Shutting Down")
 
@@ -57,7 +66,7 @@ def heartbeat_manager(vehicle: Vehicle) -> None:
         vehicle.determine_connection_status()
 
         with command_lock:
-            send_command(command_id=0, args=vehicle.status, destination=vehicle.name)
+            send_command(command_id=0, vehicle_id= vehicle.name, args = any)
             vehicle.num_beats_sent += 1
 
         time.sleep(3) 
@@ -67,36 +76,17 @@ def heartbeat_manager(vehicle: Vehicle) -> None:
 
 # 1 thread for commands
 # def command_manager(command_listener: CommandListener) -> None:
-def command_manager(command_listener : CommandListener, arg) -> None:
-    print(f"Command Manager Started")
-    send_command(command_id=1, args="testing", destination="BOB")
-    while not shutdown.is_set():
-        # listens to commands from the command RabbitMQ queue
-        # starts consuming from command_queue
-        command_listener.start()
-        with command_lock:
-            
-            pass
-            # aquire lock to send command
-            # send_command
-            # update last_command_time
-            # update last_command_sent
-            # release lock 
-            # increment # command sent (unique per vehicle)
+def command_manager(message : dict) -> None:
+    # print(f"Command Manager Started")
+    # send_command(command_id=1, args="testing", destination="BOB")
+    vehicle_id = message.get("vehicle_id")
+    command_id = message.get("command_id")
+    vehicle_instance = VEHICLES[vehicle_id]
+    with command_lock:
+        send_command(vehicle_id, command_id, any, message)
+        vehicle_instance.increment_num_command_sent()
 
-        # check which commands need to be resent (wip, it's kinda botched lmao)
         # might refactor the check_ack_status 
-        # for vehicle in VEHICLES
-            #if vehicle.last_command_sent == None or datetime.now() - vehicle.last_command_time <= x seconds: 
-                #continue
-
-            # if num_command_sent > 10 && num_command_ack == 0  (retry failed)
-                #reset counters
-                #vehicle.last_command_sent = None
-            # else 
-                # update last_command_time
-                #retry vehicle.last_command_sent (maybe make into enum?)
-                # increment counters
     print(f"Command Manager Shutting Down")
 
 def check_ack_status(packet_id : int, command_ack:int, time_arrived : float) -> bool:
@@ -106,22 +96,33 @@ def check_ack_status(packet_id : int, command_ack:int, time_arrived : float) -> 
     # return True or False
     pass
 
-def send_command_ack():
-    # get temporal queue for command ack using packet_id
-    # trigger rpc callback function send that through the temporal queque
-    # send ack back to gcs
+def send_command_ack(vehicle_id : str, command_id : str) -> None:
+    #Trigger 
+    consumer.resolve_ack(vehicle_id= vehicle_id, command_id= command_id)
     pass
 
 # args : any kind of parameter, not type defined
-def send_command(command_id:int, destination, args):
+def send_command(command_id:int, vehicle_id: str, args: dict):
     global packet_id
-    print(f"Sending Command {command_id} with args of {args} to {destination}")
-    ACK_MAP[packet_id] = f"Command {command_id} with args of {args} to {destination}"
+    print(f"Sending Command {command_id} with args of {args} to {vehicle_id}")
+    ACK_MAP[packet_id] = f"Command {command_id} with args of {args} to {vehicle_id}"
     packet_id+=1
-    # put packet_id into hashmap 
-    # match command_id (determine which command we are sending) switch case
-    # unpack args accordingloy to each command's specfic structure & create the object given by infra (under Packet)
-    # transmit command to correct MAC of the vehicle xbee
+    # put packet_id into hashmap
+    command_interface = None
+    match command_id:
+        case 2:
+            command_interface = EmergencyStop(1)
+            pass
+        case 1:
+            pass
+        case 3:
+            pass
+    packet_id = command_interface.PacketID
+    ACK_MAP[packet_id] = Acknowledgement(command_id= command_id, vehicle_id= vehicle_id, expected_time= time.time())
+    if vehicle_id == "MRA":
+        vehicle_name = Vehicle.MRA.name #I dont know exactly what are you suppose to sent / name?
+    #Infra function to send to the queue
+    SendCommand(command_interface,VehicleName=vehicle_name)
     pass
 
 def end_program(command_manager_thread:threading.Thread, telemetry_manager_thread:threading.Thread):
@@ -151,7 +152,13 @@ def main():
 
     # 3 threads hearbeat + 1 thread command_manager + 1 thread telemetry manager
     # command_manager_thread = threading.Thread(target=command_manager, args=CommandListener())
-    command_manager_thread = threading.Thread(target=command_manager, args=[CommandListener,], daemon= False)
+    # Declare consumer, declare which function they are gonna use whenever they receive a message
+    consumer = CommandListener(
+        on_command= command_manager
+    )
+    # Initialize consumer listener, on_command = handle_ui_command 
+    # Declare command_manager thread, actually starting consuming
+    command_manager_thread = threading.Thread(target=consumer.start, args=[consumer],daemon= False)
 
     telemetry_manager_thread = threading.Thread(target=telemetry_manager)
 

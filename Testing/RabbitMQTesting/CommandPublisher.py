@@ -34,8 +34,9 @@ class CommandPublisher:
         # generate unique id
         self.response = None
         self.correlation_id = str(uuid.uuid4())
+        encoded_message =  self.encoding(command)
         self.channel.basic_publish(
-            exchange= '',
+            exchange='',
             routing_key= self.queue,
             # RPC stuff
             properties = pika.BasicProperties(
@@ -43,21 +44,26 @@ class CommandPublisher:
                 correlation_id = self.correlation_id
             ),
             # convert command struture, into dic then int   o json string
-            body = json.dumps(command.__dict__, indent= 3))
-
-        while self.response is None:
-                # this will be our blocking functionality, that will x times the time for commands
-                self.connection.process_data_events(10)
-        if self.response == None:
-                self.response = (command.command_id, command.vehile_id, "False")
-        elif self.response != None:
+            body = encoded_message
+        )
+        
+        while self.response ==  None:
+                self.connection.process_data_events(0.1)
+        if self.response == "True":
                 self.response = (command.command_id, command.vehile_id, "True")
-            
+        else:
+                self.response = (command.command_id, command.vehile_id, "False/NoAck")
+    def encoding(self, command) -> bytes:
+            # convert object class into json string
+            json_string = json.dumps(command.__dict__, indent= 3)
+            # convert json string in bytes
+            message = json_string.encode('utf-8')
+            return message
 
     def on_response(self,ch, method,props,body):
         ## this is gonna change
         if self.correlation_id == props.correlation_id:
-            self.response = body
+            self.response = body.decode('utf-8')
             # body [command_type, vehicle_id, True/False "]
      # when received the message this callback_fuction will be triggered, and
     

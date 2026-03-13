@@ -262,7 +262,7 @@ def main():
     # telemetry_testing = threading.Thread(target= testing, daemon = True)
     # telemetry_testing.start()
     
-    # Start RabbitMQ Command Consumer
+    
     consumer = CommandListener(
         on_command=handle_ui_command
     )
