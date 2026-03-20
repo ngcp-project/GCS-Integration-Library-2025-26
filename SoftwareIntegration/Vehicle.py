@@ -1,8 +1,8 @@
 from threading import Thread
 from datetime import datetime
 from SoftwareIntegration.RabbitMQ.TelemetryPublisher import TelemetryPublisher
-from lib.gcs_infrastructure.lib.gcs_packet.Packet.Enum.ConnectionStatus import ConnectionStatus
-from lib.gcs_infrastructure.lib.gcs_packet.Packet.Telemetry.Telemetry import Telemetry
+from Enum import ConnectionStatus
+from Telemetry.Telemetry import Telemetry
 
 class Vehicle():
     def __init__(self, name:str):

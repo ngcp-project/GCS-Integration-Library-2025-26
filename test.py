@@ -11,7 +11,7 @@ Command3 = Heartbeat(ConnectionStatus.ConnectionStatus.Unstable)
 PORT = "COM4"
 
 #Read gcs-infrastructure documentation to understand the implications of the following function calls
-LaunchXBee(PORT)
+LaunchGCSXBee(PORT)
 
 SendCommand(Command1)
 SendCommand(Command2)

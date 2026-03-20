@@ -24,7 +24,7 @@
   
   #### Install dependencies
   ```
-  pip3 install -e Submodules/xbee_python 
+  pip3 install -r requirements.txt
   ```
   ### GCS-Infrastructure 
   
