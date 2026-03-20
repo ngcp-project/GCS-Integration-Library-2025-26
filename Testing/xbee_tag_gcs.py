@@ -206,7 +206,7 @@ def listen_for_telemetry():
     while not terminate_event.is_set():
         try:
             frame: x90 = gcs_xbee.retrieve_data()
-            print(frame)
+            print(frame)    
             if not frame:
                 time.sleep(0.05)
                 continue
@@ -221,7 +221,7 @@ def listen_for_telemetry():
             
 
             if isinstance(frame.data, Telemetry):
-                telemetry = frame.data 
+                telemetry = frame 
             elif isinstance(frame.data, bytes) and frame.data[0] == TAG_TELEMETRY:
                 try:
                     telemetry = Telemetry.decode(frame.data)
@@ -262,7 +262,7 @@ def main():
     # telemetry_testing = threading.Thread(target= testing, daemon = True)
     # telemetry_testing.start()
     
-    # Start RabbitMQ Command Consumer
+    
     consumer = CommandListener(
         on_command=handle_ui_command
     )
