@@ -51,10 +51,7 @@ class CommandListener:
             if success:
                 print(f"ACK has been received accordingly {event_key}")
                 break
-        if success: 
-            status = "True"
-        else:
-            status = "False"
+
         self._on_publish(ch, method, properties,success)
         self.pending_event.pop(event_key, None)
 
