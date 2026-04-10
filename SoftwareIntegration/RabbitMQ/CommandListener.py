@@ -23,6 +23,7 @@ class CommandListener:
         self.channel = self.connection.channel()
         # command queue
         self.channel.queue_declare(queue = self.queue, durable = True)
+        self.channel.queue_declare(queue = "ack_queue", durable= False)
         self.on_rpc_response = None
         self.pending_event = {}
     #start consuming
@@ -43,21 +44,18 @@ class CommandListener:
         event = threading.Event()
         self.pending_event[event_key] = event
         success = False
-        for _ in range(2):
+        for _ in range(3):
             self.on_command(msg,self)
             # waits for the internal flag to be true
-            success = event.wait(timeout=1.5)
+            success = event.wait(timeout=2)
             if success:
                 print(f"ACK has been received accordingly {event_key}")
                 break
-        if success:
-            status = "True"
-        else:
-            status = "False"
-        self._on_publish(ch, method, properties,status)
+
+        self._on_publish(ch, method, properties,success)
         self.pending_event.pop(event_key, None)
 
-    def resolve_ack(self, vehicle_id : str, command_id:str):
+    def resolve_ack(self, vehicle_id : str, command_id:str): 
         event_key = f"{vehicle_id}_{command_id}"
         event =  self.pending_event.get(event_key)
         # if there is an event
@@ -68,20 +66,27 @@ class CommandListener:
             print(f"Key is not existant")
     def stop(self):
         if self.connection:
-            self.connection.close()
-    # RPC STUFF:
-    # The basic idea of on publish, is that whenever is validated, its gonna publish
-    # the command throught that specific unique_queue
-    # separated function that is gonna publish back, 
-    def _on_publish(self,ch, method,properties, body):
-        response_back = body.encode('utf-8')
+            self.connection.close(), 
+    def _on_publish(self,ch, method,properties, success):
+        global msg
+        response_back = {
+            "vehicle_id": msg.get("vehicle_id"),
+            "command_id": msg.get("command_id"),
+            "status": True if success else False
+        }
+        json_string = json.dumps(response_back)
+        response_back = json_string.encode('utf-8')
         ch.basic_publish(exchange = '',
-                        routing_key = properties.reply_to,
-                        properties = pika.BasicProperties(
-                            correlation_id=  properties.correlation_id
-                        ),
+                        routing_key = "ack_queue",
                         body = response_back            
                         )
         ch.basic_ack(delivery_tag= method.delivery_tag)
         
     
+    ## Command Consumer/Listener
+    ## flow of the data "True" or "False" -> converted into a sequence of bytes
+    ## check correlation id
+    ## assign body to be -> encoded(True/False)
+
+    ## Command Publisher/
+    ## 
