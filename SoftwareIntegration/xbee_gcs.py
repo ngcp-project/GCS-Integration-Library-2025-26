@@ -2,17 +2,15 @@
 from datetime import datetime
 import threading
 import time
-from SoftwareIntegration.Vehicle import Vehicle
-from SoftwareIntegration.RabbitMQ.TelemetryPublisher import TelemetryPublisher
-from SoftwareIntegration.RabbitMQ.CommandListener import CommandListener
-from SoftwareIntegration.Acknowledgement import Acknowledgement
+from Vehicle import Vehicle
+from RabbitMQ.TelemetryPublisher import TelemetryPublisher
+from RabbitMQ.CommandListener import CommandListener
+from Acknowledgement import Acknowledgement
 from Command.EmergencyStop import EmergencyStop
-from SoftwareIntegration.RabbitMQ.CommandListener import *
-from Enum import *
+from RabbitMQ.CommandListener import *
 from PacketLibrary.PacketLibrary import PacketLibrary
 from Infrastructure import GCSXBee
 from Infrastructure import *
-from Infrastructure.GCSXBee import *
 
 VEHICLES = {
     # "Vehicle Name" : "Vehicle object" 
@@ -83,7 +81,7 @@ def command_manager(message : dict) -> None:
     command_id = message.get("command_id")
     vehicle_instance = VEHICLES[vehicle_id]
     with command_lock:
-        send_command(vehicle_id, command_id, any, message)
+        send_command(command_id, vehicle_id, message)
         vehicle_instance.increment_num_command_sent()
 
         # might refactor the check_ack_status 
@@ -110,15 +108,16 @@ def send_command(command_id:int, vehicle_id: str, args: dict):
     # put packet_id into hashmap
     command_interface = None
     match command_id:
-        case 2:
+        case 1:
             command_interface = EmergencyStop(1)
             pass
-        case 1:
+        case 2:
             pass
         case 3:
             pass
     packet_id = command_interface.PacketID
     ACK_MAP[packet_id] = Acknowledgement(command_id= command_id, vehicle_id= vehicle_id, expected_time= time.time())
+    vehicle_name =  None
     if vehicle_id == "MRA":
         vehicle_name = Vehicle.MRA.name #I dont know exactly what are you suppose to sent / name?
     #Infra function to send to the queue
@@ -141,12 +140,12 @@ def end_program(command_manager_thread:threading.Thread, telemetry_manager_threa
 def main():
     # List of vehicless
     vehicle_list = ["ERU", "MRA", "MEA"]
-
+    
     #initialize all vehicle objects
     for vehicle in vehicle_list:
         vehicle = Vehicle(name=vehicle)
         # vehicle.telemetry_publisher = TelemetryPublisher(vehicleName=vehicle.name, hostname='localhost'),
-        vehicle.heartbeat=threading.Thread(target=heartbeat_manager, args=[vehicle])
+        # vehicle.heartbeat=threading.Thread(target=heartbeat_manager, args=[vehicle])
         # putting in the map vehicle name and Vehicle class
         VEHICLES[vehicle.name] = vehicle
 
@@ -158,18 +157,18 @@ def main():
     )
     # Initialize consumer listener, on_command = handle_ui_command 
     # Declare command_manager thread, actually starting consuming
-    command_manager_thread = threading.Thread(target=consumer.start, args=[consumer],daemon= False)
+    command_manager_thread = threading.Thread(target=consumer.start, daemon=False)
 
-    telemetry_manager_thread = threading.Thread(target=telemetry_manager)
+    # telemetry_manager_thread = threading.Thread(target=telemetry_manager)
 
     # start threads
-    telemetry_manager_thread.start()
+    # telemetry_manager_thread.start()
     command_manager_thread.start()
-    for vehicle in VEHICLES.values():
-        # for each vehicle you are gonna start the hearbeat
-        vehicle.heartbeat.start()
-        # skiping heartbeats?
-        time.sleep(0.25) #staggers the heartbeats 
+    # for vehicle in VEHICLES.values():
+    #     # for each vehicle you are gonna start the hearbeat
+    #     vehicle.heartbeat.start()
+    #     # skiping heartbeats?
+    #     time.sleep(0.25) #staggers the heartbeats 
 
     #graceful shutdown
     try:
@@ -178,7 +177,7 @@ def main():
     except KeyboardInterrupt:
         print("\n Shutdown requested by user.")
     finally:
-        end_program(command_manager_thread, telemetry_manager_thread)
+        end_program(command_manager_thread, None)
 
 if __name__ == "__main__":
     main()

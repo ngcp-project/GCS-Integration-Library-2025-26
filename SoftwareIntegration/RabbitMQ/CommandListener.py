@@ -23,7 +23,7 @@ class CommandListener:
         self.channel = self.connection.channel()
         # command queue
         self.channel.queue_declare(queue = self.queue, durable = True)
-        self.channel.queue_declare(queue = "ack_queue", durable= False)
+        self.channel.queue_declare(queue = "command_ack", durable= True)
         self.on_rpc_response = None
         self.pending_event = {}
     #start consuming
@@ -39,20 +39,22 @@ class CommandListener:
     def _on_message(self, ch, method,properties, body):
         """Internal callback to handle new messages."""
         # conver back to dictionry
+        # decode the structure into a json string
+        #  convert into a string
         msg = json.loads(body)
         event_key = f"{msg.get('vehicle_id')}_{msg.get('command_id')}"
         event = threading.Event()
         self.pending_event[event_key] = event
         success = False
-        for _ in range(3):
-            self.on_command(msg,self)
+        for _ in range(10):
+            self.on_command(msg)
             # waits for the internal flag to be true
             success = event.wait(timeout=2)
             if success:
                 print(f"ACK has been received accordingly {event_key}")
                 break
 
-        self._on_publish(ch, method, properties,success)
+        self._on_publish(ch, method, properties,success, msg)
         self.pending_event.pop(event_key, None)
 
     def resolve_ack(self, vehicle_id : str, command_id:str): 
@@ -67,19 +69,20 @@ class CommandListener:
     def stop(self):
         if self.connection:
             self.connection.close(), 
-    def _on_publish(self,ch, method,properties, success):
-        global msg
+    def _on_publish(self,ch, method,properties, success, msg):
         response_back = {
             "vehicle_id": msg.get("vehicle_id"),
             "command_id": msg.get("command_id"),
             "status": True if success else False
         }
+        print(response_back)
         json_string = json.dumps(response_back)
         response_back = json_string.encode('utf-8')
         ch.basic_publish(exchange = '',
-                        routing_key = "ack_queue",
+                        routing_key = "command_ack",
                         body = response_back            
                         )
+        print("Command ack has been send")
         ch.basic_ack(delivery_tag= method.delivery_tag)
         
     

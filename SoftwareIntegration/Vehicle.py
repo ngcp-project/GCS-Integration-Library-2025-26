@@ -1,7 +1,7 @@
 from threading import Thread
 from datetime import datetime
-from SoftwareIntegration.RabbitMQ.TelemetryPublisher import TelemetryPublisher
-from Enum import ConnectionStatus
+from RabbitMQ.TelemetryPublisher import TelemetryPublisher
+from Enum.ConnectionStatus import ConnectionStatus
 from Telemetry.Telemetry import Telemetry
 
 class Vehicle():
@@ -13,10 +13,10 @@ class Vehicle():
         self.num_beats_sent = 0
         self.num_command_ack = 0
         self.num_command_sent = 0
-        self.last_command_sent = None
-        self.last_command_time = None
         self.last_telemetry_time = None 
         self.status = ConnectionStatus(0)
+        self.last_telemetry_ack = None
+        self.command_status = "N/A"
         pass
 
     def determine_connection_status(self):
