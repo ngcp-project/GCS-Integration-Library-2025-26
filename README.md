@@ -76,6 +76,17 @@ Line 3
  def __init__(self, frame_type, source_address, rssi, options: int, data):
 ```
 
+## Modifications lib/gcs-packet/Telemetry/Telemetry.py for Python 3.11+
+
+Line 2
+```
+from typing import Self
+```
+Line 49
+```
+def Decode(BinaryData) -> Self:
+```
+
 ## Set up MQTT broker:
 
 Complete steps to setup MQTT broker:
