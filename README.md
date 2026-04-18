@@ -1,16 +1,51 @@
 # GCS-Integration-Library-2025-26
 
-## First time cloning the repository
+## Getting Started
+1. ```git clone --recursive https://github.com/ngcp-project/GCS-Integration-Library-2025-26.git```
 
+At the root of the project:
+
+2. ```git checkout dev```
+3. ```cd lib```
+4. ```git submodule update --init --recursive```
+> [!NOTE]
+> Initializes the 3 submodules: gcs-infrastructure, gcs-packet, and xbee-python. It is important all submodules (including submodules of submodules) are in the lib folder for smooth imports. DO NOT CHANGE THIS. 
+5. ```cd ..```
+6. create a .venv (python virtual environment) through VSCode.
+7. ```pip install -r requirements.txt```
+
+### For Python 3.11+ | Modifications for lib/gcs-packet/Telemetry/Telemetry.py
+
+Line 2 | Add this import
 ```
-git clone --recursive https://github.com/ngcp-project/GCS-Integration-Library-2025-26.git
+from typing import Self
+```
+Line 48 | Change "Telemetry" to "Self"
+```
+def Decode(BinaryData) -> Self:
 ```
 
-## Already cloned the repository, but did not initialized the submodules
+### Cheking if submodules have been installed correctly: 
+1. open Testing/GCSTest.py in your IDE (like VSCode)
+  - This file showcases how to use all of infrastructure's features from the submodules
+  - if imports are underlined in yellow, proceed anyway
+2. click the run button
+3. If you do not have an Xbee connected, this is the expected output:
+```
+[INFO] LOGGER CREATED By XBee.py
+[INFO] port: COM4, baudrate: 115200, timeout: 0.1, config_file: None
+[INFO] Attempting to open serial XBee connection.
+[INFO] Error opening serial port: could not open port 'COM4': FileNotFoundError(2, 'The system cannot find the file specified.', None, 2)
+Error: could not open port 'COM4': FileNotFoundError(2, 'The system cannot find the file specified.', None, 2)
+[INFO] Serial port is already closed.
+[INFO] Serial port is already closed.
+Command Queued
+Command Queued
+Command Queued
+```
+As long as there are no errors when running GCSTest.py, then the submodule imports are working. 
 
-```
-git submodule update --init --recursive
-```
+4. End the program with Ctrl+C
 
 ## Update submodules to the latest commit tracked by the repository
 
@@ -24,19 +59,19 @@ git pull --recurse-submodules
 git submodule update --remote --merge --recursive
 ```
 
-## Important external repository information:
+## Submodule Repos:
 
-### Xbee-python
-
-  https://github.com/ngcp-project/xbee-python
-  
-  #### Install dependencies
-  ```
-  pip3 install -r requirements.txt
-  ```
-  ### GCS-Infrastructure 
+### gcs-infrastructure 
   
   https://github.com/ngcp-project/gcs-infrastructure
+
+### xbee-python
+
+  https://github.com/ngcp-project/xbee-python
+
+### gcs-packet 
+  
+  https://github.com/ngcp-project/gcs-packet
 
 ## Run script (xbee_tag_gcs.py)
 
@@ -74,17 +109,6 @@ Line 3
 
 ```
  def __init__(self, frame_type, source_address, rssi, options: int, data):
-```
-
-## Modifications lib/gcs-packet/Telemetry/Telemetry.py for Python 3.11+
-
-Line 2
-```
-from typing import Self
-```
-Line 49
-```
-def Decode(BinaryData) -> Self:
 ```
 
 ## Set up MQTT broker:
