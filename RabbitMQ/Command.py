@@ -5,7 +5,7 @@ import json
 class CommandRabbitMQ:
     """
     RabbitMQ consumer that listens to 'vehicle_commands' queue and forwards
-    parsed JSON messages to a provided handler function in GCS.
+    parsed JSON messages to a provided handler function in GCS. hi
     """
     def __init__(self,queue_name = 'vehicle_commands', on_command = None):
         """
