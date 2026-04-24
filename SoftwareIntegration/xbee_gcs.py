@@ -7,10 +7,15 @@ from RabbitMQ.TelemetryPublisher import TelemetryPublisher
 from RabbitMQ.CommandListener import CommandListener
 from Acknowledgement import Acknowledgement
 from Command.EmergencyStop import EmergencyStop
+from Command.KeepIn import KeepIn
+from Command.KeepOut import KeepOut
 from RabbitMQ.CommandListener import *
 from PacketLibrary.PacketLibrary import PacketLibrary
 from Infrastructure import GCSXBee
 from Infrastructure import *
+from Enum.Vehicle import Vehicle as VehicleEnum
+from Command.Heartbeat import Heartbeat
+# /Users/puma/GCS-Integration-Library-2025-26/gcs-packet/Packet/Enum/Vehicle.py
 
 VEHICLES = {
     # "Vehicle Name" : "Vehicle object" 
@@ -44,7 +49,8 @@ def telemetry_manager() -> None:
             ack_event =  ACK_MAP[packet_id]
             vehicle_id, command_id = ack_event.vehicle_id, ack_event.command_id
             ack_status = check_ack_status(telemetry_instance.packetId, telemetry_instance.last_updated)
-            vehicle_instance = VEHICLES[vehicle_id]
+            vehicle_instance : Vehicle= VEHICLES[vehicle_id]
+            vehicle_instance.publish_telemetry()
             if ack_status and (command_id == 2 or command_id == 3 or command_id == 4 or command_id == 5 or command_id ==6):
                 send_command_ack(vehicle_id=vehicle_id, command_id= command_id)
                 vehicle_instance.increment_num_command_ack()
@@ -79,11 +85,16 @@ def command_manager(message : dict) -> None:
     # send_command(command_id=1, args="testing", destination="BOB")
     vehicle_id = message.get("vehicle_id")
     command_id = message.get("command_id")
-    vehicle_instance = VEHICLES[vehicle_id]
+    print(command_id)
+    coordinates = message.get("coordinates")
+    lst_coordinates = []
+    if command_id == 2 or command_id == 3:
+        for instance in coordinates:
+            lst_coordinates.append((instance.get('lat'), instance.get('long')))
+    print(lst_coordinates)
     with command_lock:
-        send_command(command_id, vehicle_id, message)
-        vehicle_instance.increment_num_command_sent()
-
+        send_command(command_id, vehicle_id,lst_coordinates)
+    
         # might refactor the check_ack_status 
     print(f"Command Manager Shutting Down")
 
@@ -100,26 +111,53 @@ def send_command_ack(vehicle_id : str, command_id : str) -> None:
     pass
 
 # args : any kind of parameter, not type defined
-def send_command(command_id:int, vehicle_id: str, args: dict):
+def send_command(command_id:int, vehicle_id: str, lst_coordinates = None):
     global packet_id
-    print(f"Sending Command {command_id} with args of {args} to {vehicle_id}")
-    ACK_MAP[packet_id] = f"Command {command_id} with args of {args} to {vehicle_id}"
-    packet_id+=1
+    # print(f"Sending Command {command_id} with args of {args} to {vehicle_id}")
+    # ACK_MAP[packet_id] = f"Command {command_id} with args of {args} to {vehicle_id}"
+    # packet_id+=1
     # put packet_id into hashmap
     command_interface = None
+    # vehicle_id == "ALL"
+    # increment num_command_sent for each vehicle
+    
+    vehicle_instance: Vehicle = None
+    if vehicle_id != "ALL":
+        vehicle_instance = VEHICLES[vehicle_id]
     match command_id:
+        case 0:
+            command_interface = Heartbeat(vehicle_instance.status)
         case 1:
             command_interface = EmergencyStop(1)
             pass
         case 2:
+            command_interface = KeepIn(lst_coordinates)
             pass
         case 3:
+            command_interface = KeepOut(lst_coordinates)
             pass
-    packet_id = command_interface.PacketID
-    ACK_MAP[packet_id] = Acknowledgement(command_id= command_id, vehicle_id= vehicle_id, expected_time= time.time())
+        
+    if vehicle_id == "ALL":
+        for vehicle_id in VEHICLES:
+            vehicle_instance = VEHICLES[vehicle_id]
+            vehicle_instance.increment_num_command_sent()
+            packet_id = command_interface.PacketID
+            ACK_MAP[packet_id] = Acknowledgement(command_id= command_id, vehicle_id= vehicle_id ,expected_time= time.time())
+    else:
+        vehicle_instance = VEHICLES[vehicle_id]
+        vehicle_instance.increment_num_command_sent()
+        packet_id = command_interface.PacketID
+        ACK_MAP[packet_id] = Acknowledgement(command_id= command_id, vehicle_id= vehicle_id, expected_time= time.time())
     vehicle_name =  None
     if vehicle_id == "MRA":
-        vehicle_name = Vehicle.MRA.name #I dont know exactly what are you suppose to sent / name?
+        vehicle_name = VehicleEnum.MRA #I dont know exactly what are you suppose to sent / name?
+    elif vehicle_id == "ERU":
+        vehicle_name = VehicleEnum.ERU
+    elif vehicle_id == "MEA":
+        vehicle_name = VehicleEnum.MEA
+    elif vehicle_id == "ALL":
+        vehicle_name = VehicleEnum.ALL
+    print(ACK_MAP)
     #Infra function to send to the queue
     SendCommand(command_interface,VehicleName=vehicle_name)
     pass

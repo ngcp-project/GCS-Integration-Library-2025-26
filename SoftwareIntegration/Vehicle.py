@@ -7,7 +7,7 @@ from Telemetry.Telemetry import Telemetry
 class Vehicle():
     def __init__(self, name:str):
         self.name = name
-        self.telemetry_publisher = None
+        self.telemetry_publisher : TelemetryPublisher = None
         self.heartbeat = None
         self.num_beats_ack = 0
         self.num_beats_sent = 0
@@ -26,7 +26,8 @@ class Vehicle():
 
 
     def publish_telemetry(self, telemetry:Telemetry):
-        #append self.status to telemetry before sending
+        telemetry.VehicleStatus = self.status.value
+        self.telemetry_publisher.publish(telemetry)
         pass
 
     # all of this can be removed later once we start implementing. 
