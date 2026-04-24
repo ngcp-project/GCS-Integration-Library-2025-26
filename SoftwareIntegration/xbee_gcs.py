@@ -15,6 +15,8 @@ from Infrastructure import GCSXBee
 from Infrastructure import *
 from Enum.Vehicle import Vehicle as VehicleEnum
 from Command.Heartbeat import Heartbeat
+from Command.PatientLocation import PatientLocation
+from Command.SearchArea import SearchArea
 # /Users/puma/GCS-Integration-Library-2025-26/gcs-packet/Packet/Enum/Vehicle.py
 
 VEHICLES = {
@@ -54,6 +56,9 @@ def telemetry_manager() -> None:
             if ack_status and (command_id == 2 or command_id == 3 or command_id == 4 or command_id == 5 or command_id ==6):
                 send_command_ack(vehicle_id=vehicle_id, command_id= command_id)
                 vehicle_instance.increment_num_command_ack()
+            elif telemetry_instance.MessageFlag == 2:
+                with command_lock:
+                    send_command(vehicle_id= "ALL" , command_id= 5, lst_coordinates=((telemetry_instance.MessageLat, telemetry_instance.MessageLon)))
             elif ack_status and command_id == 1:
                 vehicle_instance.increment_num_beats_ack()
                 vehicle_instance.last_telemetry_ack = telemetry_instance
@@ -70,7 +75,7 @@ def heartbeat_manager(vehicle: Vehicle) -> None:
         vehicle.determine_connection_status()
 
         with command_lock:
-            send_command(command_id=0, vehicle_id= vehicle.name, args = any)
+            send_command(command_id=0, vehicle_id= vehicle.name, lst_coordinates = any)
             vehicle.num_beats_sent += 1
 
         time.sleep(3) 
@@ -91,6 +96,9 @@ def command_manager(message : dict) -> None:
     if command_id == 2 or command_id == 3:
         for instance in coordinates:
             lst_coordinates.append((instance.get('lat'), instance.get('long')))
+    # elif command_id == 5:
+    #     pass
+        
     print(lst_coordinates)
     with command_lock:
         send_command(command_id, vehicle_id,lst_coordinates)
@@ -136,6 +144,11 @@ def send_command(command_id:int, vehicle_id: str, lst_coordinates = None):
         case 3:
             command_interface = KeepOut(lst_coordinates)
             pass
+        case 4:
+            command_interface = SearchArea(lst_coordinates)
+        case 5:
+            command_interface = PatientLocation(lst_coordinates)
+            print(command_interface)
         
     if vehicle_id == "ALL":
         for vehicle_id in VEHICLES:
@@ -183,7 +196,7 @@ def main():
     for vehicle in vehicle_list:
         vehicle = Vehicle(name=vehicle)
         # vehicle.telemetry_publisher = TelemetryPublisher(vehicleName=vehicle.name, hostname='localhost'),
-        # vehicle.heartbeat=threading.Thread(target=heartbeat_manager, args=[vehicle])
+        vehicle.heartbeat=threading.Thread(target=heartbeat_manager, args=[vehicle])
         # putting in the map vehicle name and Vehicle class
         VEHICLES[vehicle.name] = vehicle
 
@@ -198,7 +211,7 @@ def main():
     command_manager_thread = threading.Thread(target=consumer.start, daemon=False)
 
     # telemetry_manager_thread = threading.Thread(target=telemetry_manager)
-
+    
     # start threads
     # telemetry_manager_thread.start()
     command_manager_thread.start()
@@ -208,6 +221,8 @@ def main():
     #     # skiping heartbeats?
     #     time.sleep(0.25) #staggers the heartbeats 
 
+    send_command(command_id= 5 , vehicle_id= "ALL" , lst_coordinates= (2.23, 4,23))
+    print("asdasd")
     #graceful shutdown
     try:
         while True:
