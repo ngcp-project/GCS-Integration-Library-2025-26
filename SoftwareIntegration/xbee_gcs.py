@@ -22,7 +22,7 @@ VEHICLES = {
 
 ACK_MAP = {
     # packet_id : "Acknowledgement object" 
-    3 :  Acknowledgement(command_id= 2, vehicle_id= "MRA", expected_time= 4.23)
+    3 :  Acknowledgement(command_id= 2, vehicle_id= Vehicle.MRA, time= 4.23)
 }
 
 COMMAND_IDS = [i for i in range(1, 7)]
@@ -43,7 +43,7 @@ def telemetry_manager() -> None:
         # check telemetry for command ack
         # use an enum for knowing which vehicle it is 
         telemetry_instance = ReceiveTelemetry() 
-        packet_id = telemetry_instance.packet_id
+        packet_id = telemetry_instance.PacketID
         vehicle_id = telemetry_instance.Vehicle
         command_id = telemetry_instance.CommandID
         vehicle_instance = VEHICLES[vehicle_id]
@@ -89,7 +89,7 @@ def command_manager(message : dict) -> None:
     print(command_id)
     coordinates = message.get("coordinates")
     lst_coordinates = []
-    if command_id == 2 or command_id == 3:
+    if command_id == 4 or command_id == 5:
         for instance in coordinates:
             lst_coordinates.append((instance.get('lat'), instance.get('long')))
     # elif command_id == 5:
@@ -216,12 +216,13 @@ def main():
     # start threads
     telemetry_manager_thread.start()
     command_manager_thread.start()
-    for vehicle in VEHICLES.values():
-        # for each vehicle you are gonna start the hearbeat
-        vehicle.heartbeat.start()
+    # for vehicle in VEHICLES.values():
+    #     # for each vehicle you are gonna start the hearbeat
+    #     vehicle.heartbeat.start()
 
-    # send_command(command_id= 5 , vehicle_id= "ALL" , lst_coordinates= (2.23, 4,23))
+    send_command(command_id= 2 , vehicle_id= Vehicle.ALL, args= (2.23, 4,23))
     Telemetry1 = Telemetry(2,3, 100, 0, 0, 0, 45, 0.5, 0, (1, 2), 0, 0, 1.0, 1.0, 0)
+    Telemetry1.Vehicle = Vehicle.MRA
     SendTelemetry(Telemetry1)
     #graceful shutdown
     try:

@@ -40,9 +40,9 @@ class TelemetryPublisher:
                 routing_key=f"telemetry_{self.vehicleName}",
                 body = message2
             )
-            print(f"Published telemetry for {self.vehicleName.upper()}")
+            print(f"Published telemetry for {self.vehicleName}")
         except Exception as e:
-            print(f"Failed to publish telemtry in the queue: {e}")
+            print(f"Failed to publish telemetry in the queue: {e}")
     
     def close_connection(self):
         if self.connection:
