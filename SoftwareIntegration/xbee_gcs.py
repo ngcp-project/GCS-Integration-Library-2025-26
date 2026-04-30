@@ -10,7 +10,7 @@ from RabbitMQ.CommandListener import *
 from PacketLibrary.PacketLibrary import PacketLibrary
 from Infrastructure import GCSXBee
 from Infrastructure import *
-from Enum.Vehicle import Vehicle
+from Enum import Vehicle, ConnectionStatus
 # /Users/puma/GCS-Integration-Library-2025-26/gcs-packet/Packet/Enum/Vehicle.py
 
 VEHICLES = {
@@ -62,15 +62,29 @@ def telemetry_manager() -> None:
 
 # Each vehicle will need a heartbeat manager
 def heartbeat_manager(vehicle: VehicleObj) -> None:
+    prevStatus = vehicle.status
+    counter = 0
     # sends the heartbeat once every second
     while not shutdown.is_set():
         vehicle.determine_connection_status()
+
+        # stop reconnection attempts after 10 failed attempts
+        if counter == 10:
+            break
+
+        # 10 reconnection attempts if it is disconnected 10 times in a row
+        if vehicle.last_telemetry_packet and prevStatus == ConnectionStatus.Disconnected:
+            counter+=1
+            vehicle.publish_telemetry(vehicle.last_telemetry_packet)
+        prevStatus = vehicle.status
+
+        # Send the command
         with command_lock:
             print(f"Heartbeat for {vehicle.id} with status {vehicle.status}")
             send_command(command_id=Heartbeat.COMMAND_ID, vehicle_id= vehicle.id, args=vehicle.status)
-            vehicle.num_beats_sent += 1
+            vehicle.increment_num_beats_sent()
         
-        time.sleep(1)
+        time.sleep(Acknowledgement.WAITTIMEINSECONDS)
     
     print(f"{vehicle.id} sent {vehicle.num_beats_sent} beats")
     print(f"Heartbeat for {vehicle.id} Shutting Down")
@@ -211,6 +225,7 @@ def main():
     command_manager_thread.start()
     for vehicle in VEHICLES.values():
         # for each vehicle you are gonna start the hearbeat
+        # maybe change this to once we are receiving telemetry then start thread?
         vehicle.heartbeat.start()
 
     #graceful shutdown
