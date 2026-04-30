@@ -5,12 +5,12 @@ import time
 from VehicleObj import VehicleObj
 from RabbitMQ import TelemetryPublisher, CommandListener
 from Acknowledgement import Acknowledgement
-from Command import EmergencyStop, Heartbeat, KeepIn, KeepOut, PatientLocation, SearchArea
+from Command import EmergencyStop, Heartbeat, PatientLocation, AddZone
 from RabbitMQ.CommandListener import *
 from PacketLibrary.PacketLibrary import PacketLibrary
 from Infrastructure import GCSXBee
 from Infrastructure import *
-from Enum import Vehicle, ConnectionStatus
+from Enum import Vehicle, ConnectionStatus, ZoneType
 # /Users/puma/GCS-Integration-Library-2025-26/gcs-packet/Packet/Enum/Vehicle.py
 
 VEHICLES = {
@@ -39,6 +39,9 @@ def telemetry_manager() -> None:
         # check telemetry for command ack
         # use an enum for knowing which vehicle it is 
         telemetry_instance = ReceiveTelemetry() 
+        if not telemetry_instance:
+            continue
+        
         packet_id = telemetry_instance.packet_id
         vehicle_id = telemetry_instance.Vehicle
         command_id = telemetry_instance.CommandID
@@ -156,7 +159,10 @@ def send_command_ack(vehicle_id : Vehicle, command_id : int) -> None:
     consumer.resolve_ack(vehicle_id= vehicle_id.name, command_id= command_id)
     pass
 
-# args : any kind of parameter, not type defined
+# args : parameters for the commands
+# for KeepIn, KeepOut, and SearchArea, the args should be 
+# args.zone = ZoneType (an enum)
+# args.coords = list of coords for the zone
 def send_command(command_id:int, vehicle_id: Vehicle, args = None):
     command_interface = None
 
@@ -165,10 +171,14 @@ def send_command(command_id:int, vehicle_id: Vehicle, args = None):
             command_interface = Heartbeat(args)
         case EmergencyStop.COMMAND_ID:
             command_interface = EmergencyStop(1)
-        case KeepIn.COMMAND_ID:
-            command_interface = KeepIn(args)
-        case KeepOut.COMMAND_ID:
-            command_interface = KeepOut(args)
+        case AddZone.COMMAND_ID:
+            command_interface = AddZone(args.zone, args.coords)
+        case PatientLocation.COMMAND_ID:
+            command_interface = PatientLocation(args)
+    
+    if not command_id:
+        print(f"Unknown Command: {command_id}" )
+        return
         
     if vehicle_id == Vehicle.ALL:
         for vehicle in VEHICLES.values():
