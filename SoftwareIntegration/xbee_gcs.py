@@ -17,6 +17,7 @@ from Enum.Vehicle import Vehicle as VehicleEnum
 from Command.Heartbeat import Heartbeat
 from Command.PatientLocation import PatientLocation
 from Command.SearchArea import SearchArea
+from Telemetry.Telemetry import Telemetry
 # /Users/puma/GCS-Integration-Library-2025-26/gcs-packet/Packet/Enum/Vehicle.py
 
 VEHICLES = {
@@ -25,6 +26,7 @@ VEHICLES = {
 
 ACK_MAP = {
     # packet_id : "Acknowledgement object" 
+    3 :  Acknowledgement(command_id= 2, vehicle_id= "MRA", expected_time= 4.23)
 }
 
 #temp packet_id for proof of concept
@@ -46,22 +48,24 @@ def telemetry_manager() -> None:
         # check telemetry for command ack
         # use an enum for knowing which vehicle it is 
         telemetry_instance = ReceiveTelemetry() 
-        packet_id = telemetry_instance.packet_id
+        packet_id = telemetry_instance.PacketID
         if packet_id in ACK_MAP:
             ack_event =  ACK_MAP[packet_id]
             vehicle_id, command_id = ack_event.vehicle_id, ack_event.command_id
-            ack_status = check_ack_status(telemetry_instance.packetId, telemetry_instance.last_updated)
+            time_arrived = time.time()
+            ack_status = check_ack_status(telemetry_instance.PacketID, time_arrived= time_arrived)
             vehicle_instance : Vehicle= VEHICLES[vehicle_id]
-            vehicle_instance.publish_telemetry()
+            vehicle_instance.publish_telemetry(telemetry_instance)
             if ack_status and (command_id == 2 or command_id == 3 or command_id == 4 or command_id == 5 or command_id ==6):
                 send_command_ack(vehicle_id=vehicle_id, command_id= command_id)
                 vehicle_instance.increment_num_command_ack()
-            elif telemetry_instance.MessageFlag == 2:
-                with command_lock:
-                    send_command(vehicle_id= "ALL" , command_id= 5, lst_coordinates=((telemetry_instance.MessageLat, telemetry_instance.MessageLon)))
             elif ack_status and command_id == 1:
                 vehicle_instance.increment_num_beats_ack()
                 vehicle_instance.last_telemetry_ack = telemetry_instance
+            if telemetry_instance.MessageFlag == 2:
+                # create another thread that will spawn the send_command n amount of times
+                with command_lock:
+                    send_command(vehicle_id= "ALL" , command_id= 5, lst_coordinates=((telemetry_instance.MessageLat, telemetry_instance.MessageLon)))
         else:
             print(f"packet_id not found in map")
 
@@ -106,11 +110,13 @@ def command_manager(message : dict) -> None:
         # might refactor the check_ack_status 
     print(f"Command Manager Shutting Down")
 
-def check_ack_status(packet_id : int, command_ack:int, time_arrived : float) -> bool:
-    # expected_ack = ACK_MAP[packet_id]
-    # last_updated should be a float bc it is datetime.datetime()? and it's already in seconds
-    # compare to expected_time in expected_ack with time_arrived and command_id
-    # return True or False
+def check_ack_status(packet_id : int, time_arrived : float) -> bool:
+    expected_ack = ACK_MAP[packet_id]
+    print(time_arrived)
+    print(expected_ack.expected_time)
+    if (time_arrived -  expected_ack.expected_time ) >= 10.0:
+        return False
+    return True
     pass
 
 def send_command_ack(vehicle_id : str, command_id : str) -> None:
@@ -144,7 +150,7 @@ def send_command(command_id:int, vehicle_id: str, lst_coordinates = None):
         case 3:
             command_interface = KeepOut(lst_coordinates)
             pass
-        case 4:
+        case 6:
             command_interface = SearchArea(lst_coordinates)
         case 5:
             command_interface = PatientLocation(lst_coordinates)
@@ -200,7 +206,7 @@ def main():
         # putting in the map vehicle name and Vehicle class
         VEHICLES[vehicle.name] = vehicle
 
-    # 3 threads hearbeat + 1 thread command_manager + 1 thread telemetry manager
+    # 3 threads heartbeat + 1 thread command_manager + 1 thread telemetry manager
     # command_manager_thread = threading.Thread(target=command_manager, args=CommandListener())
     # Declare consumer, declare which function they are gonna use whenever they receive a message
     consumer = CommandListener(
@@ -210,19 +216,20 @@ def main():
     # Declare command_manager thread, actually starting consuming
     command_manager_thread = threading.Thread(target=consumer.start, daemon=False)
 
-    # telemetry_manager_thread = threading.Thread(target=telemetry_manager)
+    telemetry_manager_thread = threading.Thread(target=telemetry_manager)
     
     # start threads
-    # telemetry_manager_thread.start()
+    telemetry_manager_thread.start()
     command_manager_thread.start()
     # for vehicle in VEHICLES.values():
     #     # for each vehicle you are gonna start the hearbeat
     #     vehicle.heartbeat.start()
     #     # skiping heartbeats?
-    #     time.sleep(0.25) #staggers the heartbeats 
+    #     # time.sleep(0.25) #staggers the heartbeats 
 
-    send_command(command_id= 5 , vehicle_id= "ALL" , lst_coordinates= (2.23, 4,23))
-    print("asdasd")
+    # send_command(command_id= 5 , vehicle_id= "ALL" , lst_coordinates= (2.23, 4,23))
+    Telemetry1 = Telemetry(2,3, 100, 0, 0, 0, 45, 0.5, 0, (1, 2), 0, 0, 1.0, 1.0, 0)
+    SendTelemetry(Telemetry1)
     #graceful shutdown
     try:
         while True:

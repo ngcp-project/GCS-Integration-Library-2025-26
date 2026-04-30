@@ -3,16 +3,16 @@ import json
 
 #constructor
 class TelemetryPublisher:
-    def __init__(self, vehicleName:str, hostname: str):
+    def __init__(self, vehicleName:str):
         self.vehicleName = vehicleName
-        self.hostName = hostname
+        self.hostName = "localhost"
         self.connection = None
         # initilize rabbitmq server
         self.channel = None
         # this will trigger both queue declarations:
         self.setup_rabbitmq()
 
-    def setup_rabbitmq(self,hostname: str):
+    def setup_rabbitmq(self):
         # our rabbitmq server will require user/password 
         credentials = pika.PlainCredentials('admin', 'admin')
         parameters = pika.ConnectionParameters(host = self.hostName, credentials= credentials, virtual_host= "/")
@@ -28,12 +28,13 @@ class TelemetryPublisher:
         if self.channel == None:
             raise Exception("RabbitMQ channel not initialized")
         try:
-            if hasattr(data, 'to_dict'):
+
+            if hasattr(data, 'ToJSON'):
                 # Serialize obj to a JSON formatted str.
-                message = json.dumps(data.to_dict(), indent = 4, default = str)
+                message = data.ToJSON()
                 message2 = message.encode("utf-8")
             else:
-                message = json.dumps(data, indent=4)
+                message2 = message.encode("utf-8")
             self.channel.basic_publish(
                 exchange= '',
                 routing_key=f"telemetry_{self.vehicleName}",

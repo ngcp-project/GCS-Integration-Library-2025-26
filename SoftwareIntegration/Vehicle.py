@@ -7,7 +7,7 @@ from Telemetry.Telemetry import Telemetry
 class Vehicle():
     def __init__(self, name:str):
         self.name = name
-        self.telemetry_publisher : TelemetryPublisher = None
+        self.telemetry_publisher : TelemetryPublisher = TelemetryPublisher(vehicleName= name)
         self.heartbeat = None
         self.num_beats_ack = 0
         self.num_beats_sent = 0
