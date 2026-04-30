@@ -21,7 +21,7 @@ ACK_MAP = {
     # packet_id : "Acknowledgement object" 
 }
 
-COMMAND_IDS = [i for i in range(1, 7)]
+COMMAND_IDS = [i for i in range(1, 5)]
 
 #create a lock for sending commands & heartbeat threads. Only one can be done at a time
 #global lock
