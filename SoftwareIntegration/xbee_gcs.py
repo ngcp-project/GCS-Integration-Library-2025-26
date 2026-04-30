@@ -2,19 +2,15 @@
 from datetime import datetime
 import threading
 import time
-from Vehicle import Vehicle
-from RabbitMQ.TelemetryPublisher import TelemetryPublisher
-from RabbitMQ.CommandListener import CommandListener
+from VehicleObj import VehicleObj
+from RabbitMQ import TelemetryPublisher, CommandListener
 from Acknowledgement import Acknowledgement
-from Command.EmergencyStop import EmergencyStop
-from Command.KeepIn import KeepIn
-from Command.KeepOut import KeepOut
+from Command import EmergencyStop, Heartbeat, KeepIn, KeepOut, PatientLocation, SearchArea
 from RabbitMQ.CommandListener import *
 from PacketLibrary.PacketLibrary import PacketLibrary
 from Infrastructure import GCSXBee
 from Infrastructure import *
-from Enum.Vehicle import Vehicle as VehicleEnum
-from Command.Heartbeat import Heartbeat
+from Enum.Vehicle import Vehicle
 from Command.PatientLocation import PatientLocation
 from Command.SearchArea import SearchArea
 from Telemetry.Telemetry import Telemetry
@@ -29,8 +25,7 @@ ACK_MAP = {
     3 :  Acknowledgement(command_id= 2, vehicle_id= "MRA", expected_time= 4.23)
 }
 
-#temp packet_id for proof of concept
-packet_id = 0
+COMMAND_IDS = [i for i in range(1, 7)]
 
 #create a lock for sending commands & heartbeat threads. Only one can be done at a time
 #global lock
@@ -44,48 +39,45 @@ consumer = CommandListener()
 def telemetry_manager() -> None:
     print(f"Telemetry Manager Started")
     while not shutdown.is_set():
-        print(ACK_MAP)
+        # print(ACK_MAP)
         # check telemetry for command ack
         # use an enum for knowing which vehicle it is 
         telemetry_instance = ReceiveTelemetry() 
-        packet_id = telemetry_instance.PacketID
-        if packet_id in ACK_MAP:
-            ack_event =  ACK_MAP[packet_id]
-            vehicle_id, command_id = ack_event.vehicle_id, ack_event.command_id
-            time_arrived = time.time()
-            ack_status = check_ack_status(telemetry_instance.PacketID, time_arrived= time_arrived)
-            vehicle_instance : Vehicle= VEHICLES[vehicle_id]
-            vehicle_instance.publish_telemetry(telemetry_instance)
-            if ack_status and (command_id == 2 or command_id == 3 or command_id == 4 or command_id == 5 or command_id ==6):
-                send_command_ack(vehicle_id=vehicle_id, command_id= command_id)
+        packet_id = telemetry_instance.packet_id
+        vehicle_id = telemetry_instance.Vehicle
+        command_id = telemetry_instance.CommandID
+        vehicle_instance = VEHICLES[vehicle_id]
+
+        ack_status = check_ack_status(vehicle_id=vehicle_id,
+                                      packet_id=packet_id, 
+                                      command_id=command_id, 
+                                      time_arrived=time.time())
+        
+        if ack_status:
+            send_command_ack(vehicle_id=vehicle_id, command_id= command_id)
+            if command_id == Heartbeat.COMMAND_ID:
                 vehicle_instance.increment_num_command_ack()
-            elif ack_status and command_id == 1:
+            else:
                 vehicle_instance.increment_num_beats_ack()
-                vehicle_instance.last_telemetry_ack = telemetry_instance
-            if telemetry_instance.MessageFlag == 2:
-                # create another thread that will spawn the send_command n amount of times
-                with command_lock:
-                    send_command(vehicle_id= "ALL" , command_id= 5, lst_coordinates=((telemetry_instance.MessageLat, telemetry_instance.MessageLon)))
-        else:
-            print(f"packet_id not found in map")
+        
+        vehicle_instance.publish_telemetry(telemetry_instance)
 
     print(f"Telemetry Manager Shutting Down")
 
 # Each vehicle will need a heartbeat manager
-def heartbeat_manager(vehicle: Vehicle) -> None:
+def heartbeat_manager(vehicle: VehicleObj) -> None:
     # sends the heartbeat once every second
     while not shutdown.is_set():
-        print(f"Heartbeat for {vehicle.name}")
         vehicle.determine_connection_status()
-
         with command_lock:
-            send_command(command_id=0, vehicle_id= vehicle.name, lst_coordinates = any)
+            print(f"Heartbeat for {vehicle.id} with status {vehicle.status}")
+            send_command(command_id=Heartbeat.COMMAND_ID, vehicle_id= vehicle.id, args=vehicle.status)
             vehicle.num_beats_sent += 1
-
-        time.sleep(3) 
+        
+        time.sleep(1)
     
-    print(f"{vehicle.name} sent {vehicle.num_beats_sent} beats")
-    print(f"Heartbeat for {vehicle.name} Shutting Down")
+    print(f"{vehicle.id} sent {vehicle.num_beats_sent} beats")
+    print(f"Heartbeat for {vehicle.id} Shutting Down")
 
 # 1 thread for commands
 # def command_manager(command_listener: CommandListener) -> None:
@@ -110,76 +102,79 @@ def command_manager(message : dict) -> None:
         # might refactor the check_ack_status 
     print(f"Command Manager Shutting Down")
 
-def check_ack_status(packet_id : int, time_arrived : float) -> bool:
-    expected_ack = ACK_MAP[packet_id]
-    print(time_arrived)
-    print(expected_ack.expected_time)
-    if (time_arrived -  expected_ack.expected_time ) >= 10.0:
-        return False
-    return True
-    pass
+def check_ack_status(vehicle_id: Vehicle, packet_id : int, command_id: int, time_arrived : float, debug=False) -> bool:
+    # expected_ack = ACK_MAP[packet_id]
+    # last_updated should be a float bc it is datetime.datetime()? and it's already in seconds
+    # compare to expected_time in expected_ack with time_arrived and command_id
+    # return True or False
 
-def send_command_ack(vehicle_id : str, command_id : str) -> None:
+    if debug:
+        if packet_id not in ACK_MAP:
+            print(f"packet_id: {packet_id} not found in Ack Map")
+            return False
+        
+        if vehicle_id not in VEHICLES.keys():
+            print(f"vehicle_id: {vehicle_id} not found in Vehicles")
+            return False
+        
+        if command_id not in COMMAND_IDS:
+            print(f"command_id: {command_id} not found in command ids")
+            return False
+        
+        expected_ack =  ACK_MAP.pop(packet_id)
+        
+        if expected_ack.command_id != command_id:
+            print(f"expected: {expected_ack.command_id} but got {command_id}")
+            return False
+        if expected_ack.vehicle_id != vehicle_id:
+            print(f"expected: {expected_ack.vehicle_id} but got {vehicle_id}")
+            return False
+        if expected_ack.time < time.time():
+            print(f"ack exceeded alloted wait time of {Acknowledgement.WAITTIMEINSECONDS}")
+            return False
+        
+        return True
+    else: 
+        expected_ack =  ACK_MAP.pop(packet_id, None)
+
+        return (expected_ack and 
+            vehicle_id in VEHICLES.keys() and 
+            command_id in COMMAND_IDS and
+            expected_ack.command_id == command_id and 
+            expected_ack.vehicle_id == vehicle_id and 
+            expected_ack.time < time.time())
+
+def send_command_ack(vehicle_id : Vehicle, command_id : int) -> None:
     #Trigger 
-    consumer.resolve_ack(vehicle_id= vehicle_id, command_id= command_id)
+    consumer.resolve_ack(vehicle_id= vehicle_id.name, command_id= command_id)
     pass
 
 # args : any kind of parameter, not type defined
-def send_command(command_id:int, vehicle_id: str, lst_coordinates = None):
-    global packet_id
-    # print(f"Sending Command {command_id} with args of {args} to {vehicle_id}")
-    # ACK_MAP[packet_id] = f"Command {command_id} with args of {args} to {vehicle_id}"
-    # packet_id+=1
-    # put packet_id into hashmap
+def send_command(command_id:int, vehicle_id: Vehicle, args = None):
     command_interface = None
-    # vehicle_id == "ALL"
-    # increment num_command_sent for each vehicle
-    
-    vehicle_instance: Vehicle = None
-    if vehicle_id != "ALL":
-        vehicle_instance = VEHICLES[vehicle_id]
+
     match command_id:
-        case 0:
-            command_interface = Heartbeat(vehicle_instance.status)
-        case 1:
+        case Heartbeat.COMMAND_ID:
+            command_interface = Heartbeat(args)
+        case EmergencyStop.COMMAND_ID:
             command_interface = EmergencyStop(1)
-            pass
-        case 2:
-            command_interface = KeepIn(lst_coordinates)
-            pass
-        case 3:
-            command_interface = KeepOut(lst_coordinates)
-            pass
-        case 6:
-            command_interface = SearchArea(lst_coordinates)
-        case 5:
-            command_interface = PatientLocation(lst_coordinates)
-            print(command_interface)
+        case KeepIn.COMMAND_ID:
+            command_interface = KeepIn(args)
+        case KeepOut.COMMAND_ID:
+            command_interface = KeepOut(args)
         
-    if vehicle_id == "ALL":
-        for vehicle_id in VEHICLES:
-            vehicle_instance = VEHICLES[vehicle_id]
-            vehicle_instance.increment_num_command_sent()
+    if vehicle_id == Vehicle.ALL:
+        for vehicle in VEHICLES.values():
+            vehicle.increment_num_command_sent()
             packet_id = command_interface.PacketID
-            ACK_MAP[packet_id] = Acknowledgement(command_id= command_id, vehicle_id= vehicle_id ,expected_time= time.time())
+            ACK_MAP[packet_id] = Acknowledgement(command_id= command_id, vehicle_id= vehicle_id ,time= time.time())
     else:
-        vehicle_instance = VEHICLES[vehicle_id]
-        vehicle_instance.increment_num_command_sent()
+        VEHICLES[vehicle_id].increment_num_command_sent()
         packet_id = command_interface.PacketID
-        ACK_MAP[packet_id] = Acknowledgement(command_id= command_id, vehicle_id= vehicle_id, expected_time= time.time())
-    vehicle_name =  None
-    if vehicle_id == "MRA":
-        vehicle_name = VehicleEnum.MRA #I dont know exactly what are you suppose to sent / name?
-    elif vehicle_id == "ERU":
-        vehicle_name = VehicleEnum.ERU
-    elif vehicle_id == "MEA":
-        vehicle_name = VehicleEnum.MEA
-    elif vehicle_id == "ALL":
-        vehicle_name = VehicleEnum.ALL
-    print(ACK_MAP)
+        ACK_MAP[packet_id] = Acknowledgement(command_id= command_id, vehicle_id= vehicle_id, time= time.time())
+
     #Infra function to send to the queue
-    SendCommand(command_interface,VehicleName=vehicle_name)
-    pass
+    SendCommand(command_interface, vehicle_id)
 
 def end_program(command_manager_thread:threading.Thread, telemetry_manager_thread:threading.Thread):
     shutdown.set()
@@ -196,15 +191,15 @@ def end_program(command_manager_thread:threading.Thread, telemetry_manager_threa
 
 def main():
     # List of vehicless
-    vehicle_list = ["ERU", "MRA", "MEA"]
-    
+    vehicle_list = [Vehicle.ERU, Vehicle.MRA, Vehicle.MEA]
+
     #initialize all vehicle objects
     for vehicle in vehicle_list:
-        vehicle = Vehicle(name=vehicle)
+        v = VehicleObj(vehicle_id=vehicle)
         # vehicle.telemetry_publisher = TelemetryPublisher(vehicleName=vehicle.name, hostname='localhost'),
-        vehicle.heartbeat=threading.Thread(target=heartbeat_manager, args=[vehicle])
+        v.heartbeat=threading.Thread(target=heartbeat_manager, args=[v])
         # putting in the map vehicle name and Vehicle class
-        VEHICLES[vehicle.name] = vehicle
+        VEHICLES[v.id] = v
 
     # 3 threads heartbeat + 1 thread command_manager + 1 thread telemetry manager
     # command_manager_thread = threading.Thread(target=command_manager, args=CommandListener())
@@ -221,11 +216,9 @@ def main():
     # start threads
     telemetry_manager_thread.start()
     command_manager_thread.start()
-    # for vehicle in VEHICLES.values():
-    #     # for each vehicle you are gonna start the hearbeat
-    #     vehicle.heartbeat.start()
-    #     # skiping heartbeats?
-    #     # time.sleep(0.25) #staggers the heartbeats 
+    for vehicle in VEHICLES.values():
+        # for each vehicle you are gonna start the hearbeat
+        vehicle.heartbeat.start()
 
     # send_command(command_id= 5 , vehicle_id= "ALL" , lst_coordinates= (2.23, 4,23))
     Telemetry1 = Telemetry(2,3, 100, 0, 0, 0, 45, 0.5, 0, (1, 2), 0, 0, 1.0, 1.0, 0)
