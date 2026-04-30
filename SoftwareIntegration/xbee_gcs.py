@@ -136,7 +136,7 @@ def check_ack_status(vehicle_id: Vehicle, packet_id : int, command_id: int, time
         if expected_ack.vehicle_id != vehicle_id:
             print(f"expected: {expected_ack.vehicle_id} but got {vehicle_id}")
             return False
-        if expected_ack.time < time.time():
+        if expected_ack.time < time_arrived:
             print(f"ack exceeded alloted wait time of {Acknowledgement.WAITTIMEINSECONDS}")
             return False
         
