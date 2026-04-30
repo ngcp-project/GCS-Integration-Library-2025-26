@@ -41,7 +41,7 @@ class VehicleObj():
     def publish_telemetry(self, telemetry:Telemetry):
         telemetry.VehicleStatus = self.status.name
         self.last_telemetry_packet = telemetry
-        self.telemetry_publisher.publish(telemetry)
+        self.telemetry_publisher.publish(telemetry.ToJSON())
         pass
 
     # all of this can be removed later once we start implementing. 
