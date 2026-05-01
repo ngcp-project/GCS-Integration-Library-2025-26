@@ -1,6 +1,6 @@
 import pika
 import json
-
+from Telemetry.Telemetry import Telemetry
 #constructor
 class TelemetryPublisher:
     def __init__(self, vehicleName:str):
@@ -24,11 +24,11 @@ class TelemetryPublisher:
         #create rssi queue for each vehicle
         # self.channel.queue_declare(queue=f"rssi_{self.vehicleName}", durable= True)
     
-    def publish(self, data):
+    def publish(self, data : Telemetry):
+        print(data)
         if self.channel == None:
             raise Exception("RabbitMQ channel not initialized")
         try:
-
             if hasattr(data, 'ToJSON'):
                 # Serialize obj to a JSON formatted str.
                 message = data.ToJSON()

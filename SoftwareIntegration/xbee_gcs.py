@@ -6,6 +6,7 @@ from VehicleObj import VehicleObj
 from RabbitMQ import TelemetryPublisher, CommandListener
 from Acknowledgement import Acknowledgement
 from Command import EmergencyStop, Heartbeat, PatientLocation, AddZone
+from Telemetry.Telemetry import Telemetry
 from RabbitMQ.CommandListener import *
 from PacketLibrary.PacketLibrary import PacketLibrary
 from Infrastructure import GCSXBee
@@ -20,6 +21,19 @@ VEHICLES = {
 ACK_MAP = {
     # packet_id : "Acknowledgement object" 
     3 :  Acknowledgement(command_id= 2, vehicle_id= Vehicle.MRA, time= 4.23)
+}
+
+ZONE_TYPE_COORDINATES_MAP = {
+    3 : {"zoneType": ZoneType.KeepIn,"coordinates":[]},
+    4 : {"zoneType": ZoneType.KeepOut,"coordinates":[]},
+    5 : {"zoneType": ZoneType.SearchArea,"coordinates":[]},
+}
+
+VEHICLE_ENUM = {
+    "ERU" :  Vehicle.ERU,
+    "MRA" :  Vehicle.MRA,
+    "MEA" :  Vehicle.MEA,
+    "ALL" : Vehicle.ALL
 }
 
 COMMAND_IDS = [i for i in range(1, 5)]
@@ -43,7 +57,7 @@ def telemetry_manager() -> None:
         if not telemetry_instance:
             continue
         
-        packet_id = telemetry_instance.packet_id
+        packet_id = telemetry_instance.PacketID
         vehicle_id = telemetry_instance.Vehicle
         command_id = telemetry_instance.CommandID
         vehicle_instance = VEHICLES[vehicle_id]
@@ -96,22 +110,23 @@ def heartbeat_manager(vehicle: VehicleObj) -> None:
 # 1 thread for commands
 # def command_manager(command_listener: CommandListener) -> None:
 def command_manager(message : dict) -> None:
-    # print(f"Command Manager Started")
-    # send_command(command_id=1, args="testing", destination="BOB")
     vehicle_id = message.get("vehicle_id")
     command_id = message.get("command_id")
-    print(command_id)
     coordinates = message.get("coordinates")
-    lst_coordinates = []
-    if command_id == 4 or command_id == 5:
-        for instance in coordinates:
-            lst_coordinates.append((instance.get('lat'), instance.get('long')))
-    # elif command_id == 5:
-    #     pass
-        
-    print(lst_coordinates)
-    with command_lock:
-        send_command(command_id, vehicle_id,lst_coordinates)
+    vehicle_id_enum =  VEHICLE_ENUM[vehicle_id]
+    print(vehicle_id)
+    print(command_id)
+    if command_id in ZONE_TYPE_COORDINATES_MAP and coordinates:
+            list_of_coordinates = []
+            for coordinate in coordinates:
+                list_of_coordinates.append((coordinate.get('lat'), coordinate.get('long')))
+            zone_type_coordinate_instance = ZONE_TYPE_COORDINATES_MAP.get(command_id)
+            zone_type_coordinate_instance["coordinates"] =  list_of_coordinates
+            with command_lock:
+                send_command(command_id= AddZone.COMMAND_ID, vehicle_id=vehicle_id_enum, args=zone_type_coordinate_instance)
+    else:
+        with command_lock:
+            send_command(command_id,  vehicle_id_enum , args= None)
     
         # might refactor the check_ack_status 
     print(f"Command Manager Shutting Down")
@@ -166,7 +181,7 @@ def send_command_ack(vehicle_id : Vehicle, command_id : int) -> None:
 # args : parameters for the commands
 # for KeepIn, KeepOut, and SearchArea, the args should be 
 # args.zone = ZoneType (an enum)
-# args.coords = list of coords for the zone
+# args.coords = list of coords for the zone\
 def send_command(command_id:int, vehicle_id: Vehicle, args = None):
     command_interface = None
 
@@ -176,7 +191,7 @@ def send_command(command_id:int, vehicle_id: Vehicle, args = None):
         case EmergencyStop.COMMAND_ID:
             command_interface = EmergencyStop(1)
         case AddZone.COMMAND_ID:
-            command_interface = AddZone(args.zone, args.coords)
+            command_interface = AddZone(args["zoneType"], args["coordinates"])
         case PatientLocation.COMMAND_ID:
             command_interface = PatientLocation(args)
     
@@ -190,7 +205,9 @@ def send_command(command_id:int, vehicle_id: Vehicle, args = None):
             packet_id = command_interface.PacketID
             ACK_MAP[packet_id] = Acknowledgement(command_id= command_id, vehicle_id= vehicle_id ,time= time.time())
     else:
-        VEHICLES[vehicle_id].increment_num_command_sent()
+        vehicle_instance : VehicleObj= VEHICLES.get(vehicle_id)
+        vehicle_instance.increment_num_command_sent()
+        # VEHICLES[vehicle_id].increment_num_command_sent()
         packet_id = command_interface.PacketID
         ACK_MAP[packet_id] = Acknowledgement(command_id= command_id, vehicle_id= vehicle_id, time= time.time())
 
@@ -215,12 +232,13 @@ def main():
     vehicle_list = [Vehicle.ERU, Vehicle.MRA, Vehicle.MEA]
 
     #initialize all vehicle objects
-    for vehicle in vehicle_list:
-        v = VehicleObj(vehicle_id=vehicle)
+    for vehicle_enum in vehicle_list:
+        vehicle = VehicleObj(vehicle_id=vehicle_enum)
         # vehicle.telemetry_publisher = TelemetryPublisher(vehicleName=vehicle.name, hostname='localhost'),
-        v.heartbeat=threading.Thread(target=heartbeat_manager, args=[v])
+        vehicle.heartbeat=threading.Thread(target=heartbeat_manager, args=[vehicle])
         # putting in the map vehicle name and Vehicle class
-        VEHICLES[v.id] = v
+        VEHICLES[vehicle.id] = vehicle
+        print(VEHICLES)
 
     # 3 threads heartbeat + 1 thread command_manager + 1 thread telemetry manager
     # command_manager_thread = threading.Thread(target=command_manager, args=CommandListener())
@@ -237,14 +255,14 @@ def main():
     # start threads
     telemetry_manager_thread.start()
     command_manager_thread.start()
-    for vehicle in VEHICLES.values():
-        # for each vehicle you are gonna start the hearbeat
-        # maybe change this to once we are receiving telemetry then start thread?
-        vehicle.heartbeat.start()
+    # for vehicle in VEHICLES.values():
+    #     # for each vehicle you are gonna start the hearbeat
+    #     # maybe change this to once we are receiving telemetry then start thread?
+    #     vehicle.heartbeat.start()
 
-    send_command(command_id= 2 , vehicle_id= Vehicle.ALL, args= (2.23, 4,23))
-    Telemetry1 = Telemetry(2,3, 100, 0, 0, 0, 45, 0.5, 0, (1, 2), 0, 0, 1.0, 1.0, 0)
-    Telemetry1.Vehicle = Vehicle.MRA
+    # send_command(command_id= 2 , vehicle_id= Vehicle.MRA, args= None)
+    Telemetry1 : Telemetry = Telemetry(2,3, 100, 0, 0, 0, 45, 0.5, 0, (1, 2), 0, 0, 1.0, 1.0, 0)
+    Telemetry1.Vehicle = Vehicle.ERU
     SendTelemetry(Telemetry1)
     #graceful shutdown
     try:

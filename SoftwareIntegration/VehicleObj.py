@@ -8,10 +8,14 @@ from Enum.Vehicle import Vehicle as Vehicle
 class VehicleObj():
     CONNECTED_ACK_PERCENT = 0.8
     UNSTABLE_ACK_PERCENT = 0.5
-
+    NAME_FORMAT = {
+        Vehicle.ERU : "eru",
+        Vehicle.MRA : "mra",
+        Vehicle.MEA : "mea"
+    }
     def __init__(self, vehicle_id:Vehicle):
         self.id = vehicle_id
-        self.telemetry_publisher : TelemetryPublisher = TelemetryPublisher(vehicleName= vehicle_id)
+        self.telemetry_publisher : TelemetryPublisher = TelemetryPublisher(vehicleName= VehicleObj.NAME_FORMAT[vehicle_id] )
         self.heartbeat = None
         self.num_beats_ack = 0
         self.num_beats_sent = 0
@@ -41,7 +45,7 @@ class VehicleObj():
     def publish_telemetry(self, telemetry:Telemetry):
         telemetry.VehicleStatus = self.status.name
         self.last_telemetry_packet = telemetry
-        self.telemetry_publisher.publish(telemetry.ToJSON())
+        self.telemetry_publisher.publish(telemetry)
         pass
 
     # all of this can be removed later once we start implementing. 
