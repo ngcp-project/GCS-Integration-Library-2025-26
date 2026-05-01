@@ -38,6 +38,10 @@ VEHICLE_ENUM = {
 
 COMMAND_IDS = [i for i in range(1, 5)]
 
+patient_is_found = False
+patient_location_manager = None
+acked_patient_location_vehicles = set()
+
 #create a lock for sending commands & heartbeat threads. Only one can be done at a time
 #global lock
 command_lock = threading.Lock()
@@ -48,6 +52,7 @@ shutdown = threading.Event()
 consumer = CommandListener()
 # 1 thread for telemetry manager
 def telemetry_manager() -> None:
+    global patient_is_found, patient_location_manager, acked_patient_location_vehicles
     print(f"Telemetry Manager Started")
     while not shutdown.is_set():
         # print(ACK_MAP)
@@ -61,6 +66,12 @@ def telemetry_manager() -> None:
         vehicle_id = telemetry_instance.Vehicle
         command_id = telemetry_instance.CommandID
         vehicle_instance = VEHICLES[vehicle_id]
+        message_flag = telemetry_instance.MessageFlag
+        
+        if not patient_is_found and message_flag == 2:  # message_flag == 2 is Patient
+            patient_is_found = True
+            patient_location_manager = threading.Thread(target=send_patient_location, args=[telemetry_instance.MessageLat, telemetry_instance.MessageLon])
+            patient_location_manager.start()            
 
         ack_status = check_ack_status(vehicle_id=vehicle_id,
                                       packet_id=packet_id, 
@@ -71,6 +82,8 @@ def telemetry_manager() -> None:
             send_command_ack(vehicle_id=vehicle_id, command_id= command_id)
             if command_id == Heartbeat.COMMAND_ID:
                 vehicle_instance.increment_num_command_ack()
+            elif command_id == PatientLocation.COMMAND_ID:
+                acked_patient_location_vehicles.add(vehicle_id)
             else:
                 vehicle_instance.increment_num_beats_ack()
         
@@ -130,6 +143,18 @@ def command_manager(message : dict) -> None:
     
         # might refactor the check_ack_status 
     print(f"Command Manager Shutting Down")
+    
+def send_patient_location(lat: float, lon: float):
+    # TODO: Consider a counter for each vehicle
+    coordinates = (lat, lon)
+    while not shutdown.is_set() and len(acked_patient_location_vehicles) < len(VEHICLES):
+        for vehicle in VEHICLES.values():
+            if vehicle.id in acked_patient_location_vehicles:
+                continue
+            
+            with command_lock:
+                send_command(PatientLocation.COMMAND_ID, vehicle.id, args=coordinates)
+    
 
 def check_ack_status(vehicle_id: Vehicle, packet_id : int, command_id: int, time_arrived : float, debug=False) -> bool:
     # expected_ack = ACK_MAP[packet_id]
@@ -218,6 +243,8 @@ def end_program(command_manager_thread:threading.Thread, telemetry_manager_threa
     shutdown.set()
     command_manager_thread.join()
     telemetry_manager_thread.join()
+    if patient_location_manager:
+        patient_location_manager.join()
     for vehicle in VEHICLES.values():
         # vehicle.telemetry_publisher.close_connection()
         vehicle.heartbeat.join()
