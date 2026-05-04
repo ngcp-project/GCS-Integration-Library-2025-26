@@ -40,7 +40,7 @@ COMMAND_IDS = [i for i in range(1, 5)]
 
 patient_is_found = False
 patient_location_manager = None
-acked_patient_location_vehicles = set()
+pending_patient_loc_ids = set() # Set of remaining vehicles to send patient location to
 
 #create a lock for sending commands & heartbeat threads. Only one can be done at a time
 #global lock
@@ -52,7 +52,7 @@ shutdown = threading.Event()
 consumer = CommandListener()
 # 1 thread for telemetry manager
 def telemetry_manager() -> None:
-    global patient_is_found, patient_location_manager, acked_patient_location_vehicles
+    global patient_is_found, patient_location_manager, pending_patient_loc_ids
     print(f"Telemetry Manager Started")
     while not shutdown.is_set():
         # print(ACK_MAP)
@@ -83,7 +83,7 @@ def telemetry_manager() -> None:
             if command_id == Heartbeat.COMMAND_ID:
                 vehicle_instance.increment_num_command_ack()
             elif command_id == PatientLocation.COMMAND_ID:
-                acked_patient_location_vehicles.add(vehicle_id)
+                pending_patient_loc_ids.discard(vehicle_id)
             else:
                 vehicle_instance.increment_num_beats_ack()
         
@@ -145,15 +145,27 @@ def command_manager(message : dict) -> None:
     print(f"Command Manager Shutting Down")
     
 def send_patient_location(lat: float, lon: float):
-    # TODO: Consider a counter for each vehicle
     coordinates = (lat, lon)
-    while not shutdown.is_set() and len(acked_patient_location_vehicles) < len(VEHICLES):
-        for vehicle in VEHICLES.values():
-            if vehicle.id in acked_patient_location_vehicles:
-                continue
-            
+    global pending_patient_loc_ids
+    pending_patient_loc_ids.update([vehicle.id for vehicle in VEHICLES.values()])
+    
+    # Only sends PatientLocation command without acknowledgement at most 10 times
+    vehicle_counters = {vehicle_id: 0 for vehicle_id in pending_patient_loc_ids}
+    MAX_COUNT = 10
+    COOLDOWN = 1
+    
+    while not shutdown.is_set() and pending_patient_loc_ids:
+        for vehicle_id in list(pending_patient_loc_ids):
+            print(f"Sending patient location to vehicle_id: {vehicle_id}")
             with command_lock:
-                send_command(PatientLocation.COMMAND_ID, vehicle.id, args=coordinates)
+                send_command(PatientLocation.COMMAND_ID, vehicle_id, args=coordinates)
+                
+            vehicle_counters[vehicle_id] += 1
+            if vehicle_counters[vehicle_id] >= MAX_COUNT:
+                print(f"vehicle_id: {vehicle_id} has reached max PatientLocation retries of {MAX_COUNT}")
+                pending_patient_loc_ids.discard(vehicle_id)
+        
+        time.sleep(COOLDOWN)
     
 
 def check_ack_status(vehicle_id: Vehicle, packet_id : int, command_id: int, time_arrived : float, debug=False) -> bool:
