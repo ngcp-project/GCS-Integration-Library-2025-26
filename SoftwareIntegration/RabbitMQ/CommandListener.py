@@ -57,7 +57,7 @@ class CommandListener:
         self._on_publish(ch, method, properties,success, msg)
         self.pending_event.pop(event_key, None)
 
-    def resolve_ack(self, vehicle_id : str, command_id:str): 
+    def resolve_ack(self, vehicle_id : str, command_id:int): 
         event_key = f"{vehicle_id}_{command_id}"
         event =  self.pending_event.get(event_key)
         # if there is an event

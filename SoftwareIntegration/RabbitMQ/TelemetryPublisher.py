@@ -31,12 +31,13 @@ class TelemetryPublisher:
             if hasattr(data, 'to_dict'):
                 # Serialize obj to a JSON formatted str.
                 message = json.dumps(data.to_dict(), indent = 4, default = str)
+                message2 = message.encode("utf-8")
             else:
                 message = json.dumps(data, indent=4)
             self.channel.basic_publish(
                 exchange= '',
                 routing_key=f"telemetry_{self.vehicleName}",
-                body = message
+                body = message2
             )
             print(f"Published telemetry for {self.vehicleName.upper()}")
         except Exception as e:
