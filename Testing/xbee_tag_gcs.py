@@ -1,3 +1,7 @@
+# Simulates the GCS Xbee receiving telemetry and sending commands (Software Integration)
+# This uses MQTT for the emulator of the XBees
+# Note to self: This will be deprecated soon after SoftwareIntegration.xbee_gcs.py is finished
+
 import threading
 import time
 import random
@@ -7,20 +11,22 @@ import os
 #Added init file to make it a package and change the folder name from xbee-python to xbee_python
 #Because it parses better
 
+# changed folder name of gcs_infra submodules to underscores
+
 # importing a module from Xbee 
-from Submodules.xbee_python.src.xbee.XBeeEmulator import XBeeEmulator as XBee
+from lib.gcs_infrastructure.lib.xbee_python.src.xbee.XBeeEmulator import XBeeEmulator as XBee
 # importing frame x81 Xbee
-from Submodules.xbee_python.src.xbee.frames.x81 import x81
+from lib.gcs_infrastructure.lib.xbee_python.src.xbee.frames.x90 import x90
 # importing Telemetry from infra
-from Submodules.gcs_infrastructure.Packet.Telemetry.Telemetry import Telemetry
+from lib.gcs_infrastructure.lib.gcs_packet.Packet.Telemetry import Telemetry
 # importing Emergency stop from infra
-from Submodules.gcs_infrastructure.Packet.Command.EmergencyStop import EmergencyStop
+from lib.gcs_infrastructure.lib.gcs_packet.Packet.Command import EmergencyStop
 # importing Logger from
-from Submodules.gcs_infrastructure.Logger.Logger import Logger
+from lib.gcs_infrastructure.Logger.Logger import Logger
 #RabbitMQ Telemetry
-from RabbitMQ.Telemetry import TelemetryRabbitMQ
+from SoftwareIntegration.RabbitMQ.TelemetryPublisher import TelemetryPublisher
 #RabbitMQ Commands
-from RabbitMQ.Command import CommandRabbitMQ
+from SoftwareIntegration.RabbitMQ.CommandListener import CommandListener
 
 TAG_COMMAND = 0x01
 TAG_TELEMETRY = 0x02
@@ -66,7 +72,7 @@ telemetry_publisher = {}
 # for each vehicle we are gonna create a new publisher
 def get_or_create_publisher(vehicle_name:str):
     if vehicle_name not in telemetry_publisher:
-        telemetry_publisher[vehicle_name] = TelemetryRabbitMQ(vehicleName= vehicle_name.lower(), hostname= 'localhost')
+        telemetry_publisher[vehicle_name] = TelemetryPublisher(vehicleName= vehicle_name.lower(), hostname= 'localhost')
     return telemetry_publisher[vehicle_name]
 
 def testing():
@@ -149,7 +155,6 @@ def parse_and_export_telemetry(telemetry: Telemetry, vehicle_name: str, rssi: in
         "patient_secured": telemetry.patient_status,
     }
     try:
-        print(f"idea",telemetry_dict)
         publisher = get_or_create_publisher(vehicle_name)
         publisher.publish(telemetry_dict)
         # export_rssi(vehicle_name, rssi)
@@ -188,7 +193,7 @@ def handle_ui_command(msg: dict):
 
 def close_connection():
     terminate_event.set()
-    # gcs_xbee.close()
+    gcs_xbee.close()
     
     for connection in telemetry_publisher.values():
         if connection != None:
@@ -200,8 +205,8 @@ def listen_for_telemetry():
     flag = 0
     while not terminate_event.is_set():
         try:
-            frame: x81 = gcs_xbee.retrieve_data()
-            print(frame)
+            frame: x90 = gcs_xbee.retrieve_data()
+            print(frame)    
             if not frame:
                 time.sleep(0.05)
                 continue
@@ -216,7 +221,7 @@ def listen_for_telemetry():
             
 
             if isinstance(frame.data, Telemetry):
-                telemetry = frame.data 
+                telemetry = frame 
             elif isinstance(frame.data, bytes) and frame.data[0] == TAG_TELEMETRY:
                 try:
                     telemetry = Telemetry.decode(frame.data)
@@ -257,12 +262,12 @@ def main():
     # telemetry_testing = threading.Thread(target= testing, daemon = True)
     # telemetry_testing.start()
     
-    # Start RabbitMQ Command Consumer
-    consumer = CommandRabbitMQ(
+    
+    consumer = CommandListener(
         on_command=handle_ui_command
     )
     
-    #Declare
+    #Creation of threads 
     consumer_thread = threading.Thread(target=consumer.start, daemon=True)
     consumer_thread.start()
     

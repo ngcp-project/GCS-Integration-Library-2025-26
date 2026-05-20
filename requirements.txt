@@ -1,0 +1,4 @@
+﻿-e lib/gcs-infrastructure
+-e lib/xbee-python
+-e lib/gcs-packet
+pika
