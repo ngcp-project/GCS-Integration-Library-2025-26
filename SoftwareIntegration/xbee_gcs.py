@@ -20,7 +20,7 @@ VEHICLES = {
 
 ACK_MAP = {
     # packet_id : "Acknowledgement object" 
-    3 :  Acknowledgement(command_id= 2, vehicle_id= Vehicle.MRA, time= 4.23)
+    # 3 :  Acknowledgement(command_id= 2, vehicle_id= Vehicle.MRA, time= 4.23)
 }
 
 ZONE_TYPE_COORDINATES_MAP = {
@@ -79,6 +79,7 @@ def telemetry_manager() -> None:
                                       time_arrived=time.time())
         
         if ack_status:
+            print("SEND_COMMAND_ACK")
             send_command_ack(vehicle_id=vehicle_id, command_id= command_id)
             if command_id == Heartbeat.COMMAND_ID:
                 vehicle_instance.increment_num_command_ack()
@@ -211,9 +212,10 @@ def check_ack_status(vehicle_id: Vehicle, packet_id : int, command_id: int, time
             expected_ack.time < time.time())
 
 def send_command_ack(vehicle_id : Vehicle, command_id : int) -> None:
-    #Trigger 
+    #Trigger
+    print(f"vehicle_name= {vehicle_id.name}, command_id ={command_id}" ) 
     consumer.resolve_ack(vehicle_id= vehicle_id.name, command_id= command_id)
-    pass
+    
 
 # args : parameters for the commands
 # for KeepIn, KeepOut, and SearchArea, the args should be 
@@ -247,6 +249,7 @@ def send_command(command_id:int, vehicle_id: Vehicle, args = None):
         # VEHICLES[vehicle_id].increment_num_command_sent()
         packet_id = command_interface.PacketID
         ACK_MAP[packet_id] = Acknowledgement(command_id= command_id, vehicle_id= vehicle_id, time= time.time())
+        print(ACK_MAP)
 
     #Infra function to send to the queue
     SendCommand(command_interface, vehicle_id)
@@ -282,6 +285,7 @@ def main():
     # 3 threads heartbeat + 1 thread command_manager + 1 thread telemetry manager
     # command_manager_thread = threading.Thread(target=command_manager, args=CommandListener())
     # Declare consumer, declare which function they are gonna use whenever they receive a message
+    global consumer
     consumer = CommandListener(
         on_command= command_manager
     )
@@ -299,10 +303,23 @@ def main():
     #     # maybe change this to once we are receiving telemetry then start thread?
     #     vehicle.heartbeat.start()
 
-    # send_command(command_id= 2 , vehicle_id= Vehicle.MRA, args= None)
-    Telemetry1 : Telemetry = Telemetry(2,3, 100, 0, 0, 0, 45, 0.5, 0, (1, 2), 0, 0, 1.0, 1.0, 0)
+    # -- Emergency Stop -- 
+    time.sleep(5)
+    Telemetry1 : Telemetry = Telemetry(CommandID=EmergencyStop.COMMAND_ID,PacketID=0, Speed= 100,Pitch= 0,Yaw= 0,Roll= 0, Altitude= 45, BatteryLife=0.5, LastUpdated= 0,CurrentPosition= (1, 2),VehicleStatus= 0,MessageFlag= 0, MessageLat=1.0, MessageLon=1.0, PatientStatus= 0)
     Telemetry1.Vehicle = Vehicle.ERU
     SendTelemetry(Telemetry1)
+    print("Command has been sent correctly")
+    # -- 
+    time.sleep(5)
+    Telemetry2 : Telemetry = Telemetry(CommandID=AddZone.COMMAND_ID,PacketID=1, Speed= 100,Pitch= 0,Yaw= 0,Roll= 0, Altitude= 45, BatteryLife=0.5, LastUpdated= 0,CurrentPosition= (1, 2),VehicleStatus= 0,MessageFlag= 0, MessageLat=1.0, MessageLon=1.0, PatientStatus= 0)
+    Telemetry2.Vehicle = Vehicle.ERU
+    SendTelemetry(Telemetry2)
+    print("Command has been sent correctly")
+
+    
+    
+
+    
     #graceful shutdown
     try:
         while True:
