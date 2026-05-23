@@ -42,14 +42,31 @@ class CommandListener:
         # decode the structure into a json string
         #  convert into a string
         msg = json.loads(body)
-        event_key = f"{msg.get('vehicle_id')}_{msg.get('command_id')}"
-        event = threading.Event()
-        self.pending_event[event_key] = event
+        if msg.get('vehicle_id') == 'ALL':
+            vehicle_names = ['ERU','MRA','MEA'] 
+            for vehicle in vehicle_names:
+                msg['vehicle_id'] = vehicle
+                print(f"this is a dic: {msg}")
+                event_key = f"{vehicle}_{msg.get("command_id")}"
+                print(f"event_key is {event_key}")
+                event = threading.Event()
+                self.pending_event[event_key] =  event
+                print(f"this is the pending event: {self.pending_event}")
+                self.send_ack(msg,event,ch,method, properties, event_key)
+        else:
+            event_key = f"{msg.get('vehicle_id')}_{msg.get('command_id')}"
+            event = threading.Event()
+            self.pending_event[event_key] = event
+            self.send_ack(msg,event,ch, method,properties, event_key)
+            print(self.pending_event)
+
+        ch.basic_ack(delivery_tag= method.delivery_tag)
+    def send_ack(self, msg, event, ch, method, properties, event_key):
+        """Wait for acknowledgment from a vehicle and publish response"""
         success = False
-        for _ in range(10):
-            self.on_command(msg)
-            # waits for the internal flag to be true
-            success = event.wait(timeout=2)
+        for _ in range(5):
+            self.on_command(msg)    
+            success = event.wait(timeout = 5)
             if success:
                 print(f"ACK has been received accordingly {event_key}")
                 break
@@ -59,13 +76,16 @@ class CommandListener:
 
     def resolve_ack(self, vehicle_id : str, command_id:int): 
         event_key = f"{vehicle_id}_{command_id}"
+        print(event_key)
+        print(self.pending_event)
         event =  self.pending_event.get(event_key)
+        
         # if there is an event
         if event:
             #set internal flag to true
             event.set()
         else:
-            print(f"Key is not existant")
+            print(f"Key is not existent")
     def stop(self):
         if self.connection:
             self.connection.close(), 
@@ -83,7 +103,6 @@ class CommandListener:
                         body = response_back            
                         )
         print("Command ack has been send")
-        ch.basic_ack(delivery_tag= method.delivery_tag)
         
     
     ## Command Consumer/Listener
