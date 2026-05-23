@@ -32,17 +32,18 @@ class VehicleObj():
         if self.last_telemetry_time == None:
             self.status = ConnectionStatus.Disconnected
             return
-        time_since = time.time() - self.last_telemetry_time
+        time_since = time() - self.last_telemetry_time
         percent_ack = self.num_beats_ack/(self.num_beats_sent-1) if time_since < 1 else self.num_beats_ack/self.num_beats_sent
-        if percent_ack >= Vehicle.CONNECTED_ACK_PERCENT:
+        if percent_ack >= VehicleObj.CONNECTED_ACK_PERCENT:
             self.status = ConnectionStatus.Connected
-        elif percent_ack >= Vehicle.UNSTABLE_ACK_PERCENT:
+        elif percent_ack >= VehicleObj.UNSTABLE_ACK_PERCENT:
             self.status = ConnectionStatus.Unstable
         else:
             self.status = ConnectionStatus.Disconnected
 
 
     def publish_telemetry(self, telemetry:Telemetry):
+        self.last_telemetry_time = time()
         telemetry.VehicleStatus = self.status.name
         self.last_telemetry_packet = telemetry
         self.telemetry_publisher.publish(telemetry)
@@ -51,7 +52,7 @@ class VehicleObj():
     # all of this can be removed later once we start implementing. 
     # this is for the outlining 
     def increment_num_beats_ack(self):
-        self.num_beats_ack += 1 
+        self.num_beats_ack += 1
     
     def increment_num_beats_sent(self):
         self.num_beats_sent += 1
