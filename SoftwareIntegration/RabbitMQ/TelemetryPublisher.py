@@ -31,9 +31,10 @@ class TelemetryPublisher:
         try:
             if hasattr(data, 'ToJSON'):
                 # Serialize obj to a JSON formatted str.
-                message = data.ToJSON()
+                message = self.to_actual_JSON(data)
                 message2 = message.encode("utf-8")
             else:
+                message = self.to_actual_JSON(data)
                 message2 = message.encode("utf-8")
             self.channel.basic_publish(
                 exchange= '',
@@ -47,6 +48,34 @@ class TelemetryPublisher:
     def close_connection(self):
         if self.connection:
             self.connection.close()
-                
+
+    
+    def to_actual_JSON(self, data: Telemetry) -> str:
+        JSONData = {
+            "vehicle_id": str(data.Vehicle.name).lower(),
+            "signal_strength": 0,
+            "pitch": float(data.Pitch),
+            "yaw": float(data.Yaw),
+            "roll": float(data.Roll),
+            "speed": float(data.Speed),
+            "altitude": float(data.Altitude),
+            "battery_life": int(data.BatteryLife),
+            "current_position": {
+                "latitude": float(data.CurrentPositionX),
+                "longitude": float(data.CurrentPositionY)
+            },
+            "vehicle_status": str(data.VehicleStatus),
+            "request_coordinate": {
+                "message_flag": int(data.MessageFlag),
+                "request_location": {
+                    "latitude": float(data.MessageLat),
+                    "longitude": float(data.MessageLon)
+                },
+               "patient_secured": bool(data.PatientStatus)
+            }
+        }
+
+        return json.dumps(JSONData)
+                    
                 
         

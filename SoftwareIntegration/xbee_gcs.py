@@ -91,7 +91,9 @@ def telemetry_manager() -> None:
             else:
                 vehicle_instance.increment_num_command_ack()
         
+        print("DATA SEND")
         vehicle_instance.publish_telemetry(telemetry_instance)
+    
 
     print(f"Telemetry Manager Shutting Down")
 
@@ -321,7 +323,7 @@ def main():
     Telemetry1 : Telemetry = Telemetry(CommandID=EmergencyStop.COMMAND_ID,PacketID=0, Speed= 100,Pitch= 0,Yaw= 0,Roll= 0, Altitude= 45, BatteryLife=0.5, LastUpdated= 0,CurrentPosition= (1, 2),VehicleStatus= 0,MessageFlag= 0, MessageLat=1.0, MessageLon=1.0, PatientStatus= 0)
     Telemetry1.Vehicle = Vehicle.ERU
     SendTelemetry(Telemetry1)
-    # MEA SENDS THE FLAG  PACKET_ID = 0
+    # # MEA SENDS THE FLAG  PACKET_ID = 0
 
     # -- Add Zone --
     time.sleep(3)
@@ -331,6 +333,7 @@ def main():
     print("Command has been sent correctly")
 
     # -- Emergency Stop ALL --
+    
     time.sleep(3)
     packet_counter = 2
     for vehicle in VEHICLE_ENUM.values():
@@ -349,7 +352,7 @@ def main():
         SendTelemetry(telemetry_instance)
         packet_counter += 1
         time.sleep(1.0)
-        
+
     time.sleep(3)
     # -- Patient Location --
     patient_found_telemetry : Telemetry = Telemetry(CommandID=PatientLocation.COMMAND_ID, PacketID=2, Speed= 100,Pitch= 0,Yaw= 0,Roll= 0, Altitude= 45, BatteryLife=0.5, LastUpdated= 0,CurrentPosition= (1, 2),VehicleStatus= 0,MessageFlag= 2, MessageLat=1.0, MessageLon=1.0, PatientStatus= 0)
@@ -357,13 +360,13 @@ def main():
     SendTelemetry(patient_found_telemetry)
     print("Patient Location Found")
     
-    time.sleep(3)
-    for packet_id, ack in list(ACK_MAP.items()):
-        if ack.command_id == PatientLocation.COMMAND_ID:
-            patient_ack_telemetry : Telemetry = Telemetry(CommandID=PatientLocation.COMMAND_ID, PacketID=packet_id)
-            patient_ack_telemetry.Vehicle = ack.vehicle_id
-            SendTelemetry(patient_ack_telemetry)
-            print(f"{ack.vehicle_id} patient location acknowledgement sent.")
+    # time.sleep(3)
+    # for packet_id, ack in list(ACK_MAP.items()):
+    #     if ack.command_id == PatientLocation.COMMAND_ID:
+    #         patient_ack_telemetry : Telemetry = Telemetry(CommandID=PatientLocation.COMMAND_ID, PacketID=packet_id)
+    #         patient_ack_telemetry.Vehicle = ack.vehicle_id
+    #         SendTelemetry(patient_ack_telemetry)
+    #         print(f"{ack.vehicle_id} patient location acknowledgement sent.")
             
     # -- Heartbeat --
     time.sleep(3)
