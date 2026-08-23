@@ -50,7 +50,7 @@ command_lock = threading.Lock()
 shutdown = threading.Event()
 
 consumer = CommandListener()
-# 1 thread for telemetry manager
+# 1 thread forbun telemetry manager
 def telemetry_manager() -> None:
     global patient_is_found, patient_location_manager, pending_patient_loc_ids
     print(f"Telemetry Manager Started")
@@ -61,7 +61,7 @@ def telemetry_manager() -> None:
         telemetry_instance = ReceiveTelemetry() 
         if not telemetry_instance:
             continue
-        
+        print(telemetry_instance)
         packet_id = telemetry_instance.PacketID
         vehicle_id = telemetry_instance.Vehicle
         command_id = telemetry_instance.CommandID
@@ -209,7 +209,7 @@ def check_ack_status(vehicle_id: Vehicle, packet_id : int, command_id: int, time
         return True 
     else: 
         expected_ack =  ACK_MAP.pop(packet_id, None)
-        print(expected_ack)
+        # print(expected_ack)
 
         return (expected_ack and 
             vehicle_id in VEHICLES.keys() and 
@@ -245,7 +245,7 @@ def send_command(command_id:int, vehicle_id: Vehicle, args = None):
         command_interface = create_new_command(command_id= command_id, args = args)
         packet_id = command_interface.PacketID
         ACK_MAP[packet_id] = Acknowledgement(command_id= command_id, vehicle_id= vehicle_id, time= time.time())
-        print(ACK_MAP)
+        # print(ACK_MAP)
 
         #Infra function to send to the queue
         SendCommand(command_interface, vehicle_id)
@@ -285,6 +285,13 @@ def end_program(command_manager_thread:threading.Thread, telemetry_manager_threa
 # we also need a function to clean up the dict/remove acknwoledged commands
 
 def main():
+    PacketLibrary.SetVehicleMACAddress(Vehicle.MRA, "0013A200429819FF")
+    PacketLibrary.SetVehicleMACAddress(Vehicle.MEA, "0013A20040F8063C")
+    PacketLibrary.SetVehicleMACAddress(Vehicle.ERU, "0013A20042839F3E")
+
+    LaunchGCSXBee("COM5")
+    
+    
     # List of vehicless
     vehicle_list = [Vehicle.ERU, Vehicle.MRA, Vehicle.MEA]
 
@@ -319,46 +326,46 @@ def main():
         vehicle.heartbeat.start()
 
     # -- Emergency Stop -- 
-    time.sleep(3)
-    Telemetry1 : Telemetry = Telemetry(CommandID=EmergencyStop.COMMAND_ID,PacketID=0, Speed= 100,Pitch= 0,Yaw= 0,Roll= 0, Altitude= 45, BatteryLife=0.5, LastUpdated= 0,CurrentPosition= (1, 2),VehicleStatus= 0,MessageFlag= 0, MessageLat=1.0, MessageLon=1.0, PatientStatus= 0)
-    Telemetry1.Vehicle = Vehicle.ERU
-    SendTelemetry(Telemetry1)
-    # # MEA SENDS THE FLAG  PACKET_ID = 0
+    # time.sleep(3)
+    # Telemetry1 : Telemetry = Telemetry(CommandID=EmergencyStop.COMMAND_ID,PacketID=0, Speed= 100,Pitch= 0,Yaw= 0,Roll= 0, Altitude= 45, BatteryLife=0.5, LastUpdated= 0,CurrentPosition= (1, 2),VehicleStatus= 0,MessageFlag= 0, MessageLat=1.0, MessageLon=1.0, PatientStatus= 0)
+    # Telemetry1.Vehicle = Vehicle.ERU
+    # SendTelemetry(Telemetry1)
+    # # # MEA SENDS THE FLAG  PACKET_ID = 0
 
-    # -- Add Zone --
-    time.sleep(3)
-    Telemetry2 : Telemetry = Telemetry(CommandID=AddZone.COMMAND_ID,PacketID=1, Speed= 100,Pitch= 0,Yaw= 0,Roll= 0, Altitude= 45, BatteryLife=0.5, LastUpdated= 0,CurrentPosition= (1, 2),VehicleStatus= 0,MessageFlag= 0, MessageLat=1.0, MessageLon=1.0, PatientStatus= 0)
-    Telemetry2.Vehicle = Vehicle.ERU
-    SendTelemetry(Telemetry2)
-    print("Command has been sent correctly")
+    # # -- Add Zone --
+    # time.sleep(3)
+    # Telemetry2 : Telemetry = Telemetry(CommandID=AddZone.COMMAND_ID,PacketID=1, Speed= 100,Pitch= 0,Yaw= 0,Roll= 0, Altitude= 45, BatteryLife=0.5, LastUpdated= 0,CurrentPosition= (1, 2),VehicleStatus= 0,MessageFlag= 0, MessageLat=1.0, MessageLon=1.0, PatientStatus= 0)
+    # Telemetry2.Vehicle = Vehicle.ERU
+    # SendTelemetry(Telemetry2)
+    # print("Command has been sent correctly")
 
-    # -- Emergency Stop ALL --
+    # # -- Emergency Stop ALL --
     
-    time.sleep(3)
-    packet_counter = 2
-    for vehicle in VEHICLE_ENUM.values():
-        telemetry_instance : Telemetry = Telemetry(CommandID=EmergencyStop.COMMAND_ID,PacketID=packet_counter, Speed= 100,Pitch= 0,Yaw= 0,Roll= 0, Altitude= 45, BatteryLife=0.5, LastUpdated= 0,CurrentPosition= (1, 2),VehicleStatus= 0,MessageFlag= 0, MessageLat=1.0, MessageLon=1.0, PatientStatus= 0)
-        telemetry_instance.Vehicle = vehicle
-        SendTelemetry(telemetry_instance)
-        packet_counter += 1
-        time.sleep(1.0)
+    # time.sleep(3)
+    # packet_counter = 2
+    # for vehicle in VEHICLE_ENUM.values():
+    #     telemetry_instance : Telemetry = Telemetry(CommandID=EmergencyStop.COMMAND_ID,PacketID=packet_counter, Speed= 100,Pitch= 0,Yaw= 0,Roll= 0, Altitude= 45, BatteryLife=0.5, LastUpdated= 0,CurrentPosition= (1, 2),VehicleStatus= 0,MessageFlag= 0, MessageLat=1.0, MessageLon=1.0, PatientStatus= 0)
+    #     telemetry_instance.Vehicle = vehicle
+    #     SendTelemetry(telemetry_instance)
+    #     packet_counter += 1
+    #     time.sleep(1.0)
 
-    time.sleep(3)
-    # --Add Zone ALL --
-    packet_counter = 6
-    for vehicle in VEHICLE_ENUM.values():
-        telemetry_instance : Telemetry = Telemetry(CommandID=AddZone.COMMAND_ID,PacketID=packet_counter, Speed= 100,Pitch= 0,Yaw= 0,Roll= 0, Altitude= 45, BatteryLife=0.5, LastUpdated= 0,CurrentPosition= (1, 2),VehicleStatus= 0,MessageFlag= 0, MessageLat=1.0, MessageLon=1.0, PatientStatus= 0)
-        telemetry_instance.Vehicle = vehicle
-        SendTelemetry(telemetry_instance)
-        packet_counter += 1
-        time.sleep(1.0)
+    # time.sleep(3)
+    # # --Add Zone ALL --
+    # packet_counter = 6
+    # for vehicle in VEHICLE_ENUM.values():
+    #     telemetry_instance : Telemetry = Telemetry(CommandID=AddZone.COMMAND_ID,PacketID=packet_counter, Speed= 100,Pitch= 0,Yaw= 0,Roll= 0, Altitude= 45, BatteryLife=0.5, LastUpdated= 0,CurrentPosition= (1, 2),VehicleStatus= 0,MessageFlag= 0, MessageLat=1.0, MessageLon=1.0, PatientStatus= 0)
+    #     telemetry_instance.Vehicle = vehicle
+    #     SendTelemetry(telemetry_instance)
+    #     packet_counter += 1
+    #     time.sleep(1.0)
 
-    time.sleep(3)
-    # -- Patient Location --
-    patient_found_telemetry : Telemetry = Telemetry(CommandID=PatientLocation.COMMAND_ID, PacketID=2, Speed= 100,Pitch= 0,Yaw= 0,Roll= 0, Altitude= 45, BatteryLife=0.5, LastUpdated= 0,CurrentPosition= (1, 2),VehicleStatus= 0,MessageFlag= 2, MessageLat=1.0, MessageLon=1.0, PatientStatus= 0)
-    patient_found_telemetry.Vehicle = Vehicle.ERU
-    SendTelemetry(patient_found_telemetry)
-    print("Patient Location Found")
+    # time.sleep(3)
+    # # -- Patient Location --
+    # patient_found_telemetry : Telemetry = Telemetry(CommandID=PatientLocation.COMMAND_ID, PacketID=2, Speed= 100,Pitch= 0,Yaw= 0,Roll= 0, Altitude= 45, BatteryLife=0.5, LastUpdated= 0,CurrentPosition= (1, 2),VehicleStatus= 0,MessageFlag= 2, MessageLat=1.0, MessageLon=1.0, PatientStatus= 0)
+    # patient_found_telemetry.Vehicle = Vehicle.ERU
+    # SendTelemetry(patient_found_telemetry)
+    # print("Patient Location Found")
     
     # time.sleep(3)
     # for packet_id, ack in list(ACK_MAP.items()):
@@ -368,16 +375,16 @@ def main():
     #         SendTelemetry(patient_ack_telemetry)
     #         print(f"{ack.vehicle_id} patient location acknowledgement sent.")
             
-    # -- Heartbeat --
-    time.sleep(3)
-    while not shutdown.is_set() and ACK_MAP:
-        time.sleep(1)
-        for packet_id, ack in list(ACK_MAP.items()):
-            if ack.command_id == Heartbeat.COMMAND_ID:
-                heartbeat_ack = Telemetry(CommandID=Heartbeat.COMMAND_ID, PacketID=packet_id)
-                heartbeat_ack.Vehicle = ack.vehicle_id
-                SendTelemetry(heartbeat_ack)
-                print(f"Heartbeat ACK sent from {ack.vehicle_id}")
+    # # -- Heartbeat --
+    # time.sleep(3)
+    # while not shutdown.is_set() and ACK_MAP:
+    #     time.sleep(1)
+    #     for packet_id, ack in list(ACK_MAP.items()):
+    #         if ack.command_id == Heartbeat.COMMAND_ID:
+    #             heartbeat_ack = Telemetry(CommandID=Heartbeat.COMMAND_ID, PacketID=packet_id)
+    #             heartbeat_ack.Vehicle = ack.vehicle_id
+    #             SendTelemetry(heartbeat_ack)
+    #             print(f"Heartbeat ACK sent from {ack.vehicle_id}")
     # time.sleep(2)
     # Telemetry3 : Telemetry = Telemetry(CommandID=EmergencyStop.COMMAND_ID,PacketID=1, Speed= 100,Pitch= 0,Yaw= 0,Roll= 0, Altitude= 45, BatteryLife=0.5, LastUpdated= 0,CurrentPosition= (1, 2),VehicleStatus= 0,MessageFlag= 0, MessageLat=1.0, MessageLon=1.0, PatientStatus= 0)
     # Telemetry3.Vehicle = Vehicle.MRA
